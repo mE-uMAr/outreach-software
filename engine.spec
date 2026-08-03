@@ -14,6 +14,20 @@ hidden_imports = [
     *collect_submodules("engine.services"),
     *collect_submodules("engine.rpc"),
     *collect_submodules("engine.core"),
+    # SQLite: `sqlite3` is pure Python around the `_sqlite3` extension, which in
+    # turn loads sqlite3.dll. Naming them keeps the database working on a machine
+    # with no Python installed.
+    "sqlite3",
+    "_sqlite3",
+    # httpx pulls these in lazily; without them the AI providers fail only at
+    # runtime, inside the packaged build, where it is hardest to diagnose.
+    "httpx",
+    "httpcore",
+    "h11",
+    "certifi",
+    "idna",
+    "sniffio",
+    "anyio",
 ]
 
 analysis = Analysis(
@@ -27,7 +41,8 @@ analysis = Analysis(
     runtime_hooks=[],
     excludes=[
         # Nothing in the engine draws a UI or crunches arrays; excluding these
-        # keeps the shipped folder small.
+        # keeps the shipped folder small. `sqlite3` is NOT excluded — the engine
+        # depends on it and it must travel with the binary.
         "tkinter",
         "unittest",
         "pydoc",

@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { Info } from 'lucide-react'
 import { forwardRef } from 'react'
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
 
 /** Shared control styling (design: `.field-input`). */
 export const fieldClass =
@@ -68,31 +68,6 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
     )
   }
 )
-
-/**
- * Native select with the design's inline chevron. Kept native so keyboard and
- * screen-reader behaviour is unchanged.
- */
-export function FieldSelect({
-  className,
-  children,
-  ...props
-}: SelectHTMLAttributes<HTMLSelectElement>): JSX.Element {
-  return (
-    <select
-      className={clsx(
-        fieldClass,
-        'w-full cursor-pointer appearance-none bg-[length:12px] bg-[right_10px_center] bg-no-repeat pr-7',
-        "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")]",
-        'disabled:cursor-not-allowed',
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </select>
-  )
-}
 
 interface NumberFieldProps {
   value: number

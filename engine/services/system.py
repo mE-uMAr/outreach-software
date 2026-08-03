@@ -8,6 +8,7 @@ import sys
 import time
 from typing import Any
 
+from ..core import db
 from ..core.config import ENGINE_VERSION, get_settings, save_settings
 from ..rpc.registry import method, registry
 
@@ -45,7 +46,14 @@ def system_health() -> dict[str, Any]:
         "uptimeSeconds": round(time.time() - _STARTED_AT, 3),
         "dataDir": str(settings.data_dir),
         "dataDirWritable": data_dir_ok,
+        "databaseReady": db.is_initialised(),
     }
+
+
+@method("system.dbInfo")
+def system_db_info() -> dict[str, Any]:
+    """Database location, schema version and per-table row counts."""
+    return db.info()
 
 
 @method("system.methods")

@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, nativeTheme } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { EngineSupervisor } from './engine/supervisor.js'
 import { registerIpcHandlers } from './ipc.js'
@@ -19,7 +19,8 @@ function createWindow(): BrowserWindow {
     minHeight: 640,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0f1115',
+    // Matches the renderer's canvas so there is no dark flash before first paint.
+    backgroundColor: '#f8fafc',
     title: 'LinkedIn Outreach',
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.mjs'),
@@ -58,6 +59,10 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(async () => {
     electronApp.setAppUserModelId('com.hashedsystem.linkedinoutreach')
+
+    // The UI is light-only; without this, native menus and dialogs follow a dark
+    // OS theme and stop matching the window.
+    nativeTheme.themeSource = 'light'
 
     app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
 

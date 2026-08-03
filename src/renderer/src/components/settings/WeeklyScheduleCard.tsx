@@ -2,7 +2,8 @@ import clsx from 'clsx'
 import { Calendar } from 'lucide-react'
 import { SectionCard } from './SectionCard.js'
 import { Toggle } from '../ui/Toggle.js'
-import { FieldSelect, InfoBanner, NumberField } from '../ui/Field.js'
+import { InfoBanner, NumberField } from '../ui/Field.js'
+import { Select, type SelectOption } from '../ui/Select.js'
 import {
   activeDays,
   weeklyTotal,
@@ -10,7 +11,7 @@ import {
   type DaySchedule
 } from '../../data/types.js'
 
-const ACTIONS: { value: AutomationAction; label: string }[] = [
+const ACTIONS: readonly SelectOption<AutomationAction>[] = [
   { value: 'send', label: 'Send Connection Requests' },
   { value: 'followup', label: 'Follow-up Requests' },
   { value: 'none', label: 'No Automation' }
@@ -92,19 +93,14 @@ export function WeeklyScheduleCard({ schedule, onChange }: WeeklyScheduleCardPro
             <div className="text-[11px] text-ink-subtle">{day.full}</div>
           </div>
 
-          <FieldSelect
-            aria-label={`${day.full} automation action`}
+          <Select
+            label={`${day.full} automation action`}
             value={day.action}
+            options={ACTIONS}
             disabled={!day.enabled}
-            onChange={(event) => patch(day.key, { action: event.target.value as AutomationAction })}
+            onChange={(action) => patch(day.key, { action })}
             className="max-w-[260px]"
-          >
-            {ACTIONS.map((action) => (
-              <option key={action.value} value={action.value}>
-                {action.label}
-              </option>
-            ))}
-          </FieldSelect>
+          />
 
           <div className="min-w-[160px]">
             {day.enabled && day.action !== 'none' ? (

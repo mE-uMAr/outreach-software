@@ -6,12 +6,24 @@ export interface EngineLaunchSpec {
   command: string
   args: string[]
   cwd: string
-  /** 'frozen' = PyInstaller binary shipped in resources; 'source' = interpreter + engine/main.py */
+  /** 'frozen' = PyInstaller binary shipped with the app; 'source' = interpreter + engine/main.py */
   mode: 'frozen' | 'source'
+}
+
+export class EngineNotFoundError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'EngineNotFoundError'
+  }
 }
 
 const isWindows = process.platform === 'win32'
 const EXE_NAME = isWindows ? 'linkedin-outreach-engine.exe' : 'linkedin-outreach-engine'
+
+/** Where the frozen engine lives inside a packaged app. */
+export function frozenEnginePath(): string {
+  return join(process.resourcesPath, 'engine', EXE_NAME)
+}
 
 /**
  * Candidate interpreters for development, most specific first: a project-local
@@ -32,23 +44,29 @@ function devInterpreters(projectRoot: string): string[] {
 /**
  * Decide how to start the engine.
  *
- * Packaged builds always prefer the frozen binary under `resources/engine`; a
- * source fallback exists so a broken/missing freeze during local packaging tests
- * still yields a running app instead of a silent dead sidecar.
+ * A packaged build runs the frozen binary and nothing else. It deliberately does
+ * not fall back to a system interpreter: the installed app is meant to be
+ * self-contained, and a machine with no Python would otherwise fail with a
+ * confusing "python not found" instead of the real problem — a broken package.
  */
 export function resolveEngineLaunchSpec(): EngineLaunchSpec {
-  const projectRoot = app.isPackaged ? process.resourcesPath : app.getAppPath()
-
   if (app.isPackaged) {
-    const frozen = join(process.resourcesPath, 'engine', EXE_NAME)
-    if (existsSync(frozen)) {
-      return { command: frozen, args: [], cwd: join(process.resourcesPath, 'engine'), mode: 'frozen' }
+    const frozen = frozenEnginePath()
+    if (!existsSync(frozen)) {
+      throw new EngineNotFoundError(
+        `The bundled engine is missing (expected at ${frozen}). This install is incomplete — reinstall the app.`
+      )
+    }
+    return {
+      command: frozen,
+      args: [],
+      cwd: join(process.resourcesPath, 'engine'),
+      mode: 'frozen'
     }
   }
 
-  const entry = app.isPackaged
-    ? join(process.resourcesPath, 'engine', 'main.py')
-    : join(projectRoot, 'engine', 'main.py')
+  const projectRoot = app.getAppPath()
+  const entry = join(projectRoot, 'engine', 'main.py')
 
   // A bare name (`python3`) is left to PATH resolution; an explicit path must exist.
   const interpreter = devInterpreters(projectRoot).find((candidate) => {

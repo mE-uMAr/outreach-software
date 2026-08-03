@@ -19,6 +19,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from engine.core import db  # noqa: E402
 from engine.core.config import ENGINE_VERSION, get_settings  # noqa: E402
 from engine.core.logging import configure_logging, get_logger  # noqa: E402
 from engine.rpc.registry import registry  # noqa: E402
@@ -36,6 +37,15 @@ async def run() -> int:
     log = get_logger("engine")
     settings = get_settings()
     log.info("LinkedIn Outreach engine v%s starting (data dir: %s)", ENGINE_VERSION, settings.data_dir)
+
+    # Create or upgrade the database before any service can touch it.
+    try:
+        status = db.initialize()
+        log.info("Database schema v%s at %s", status["schemaVersion"], status["path"])
+    except Exception:
+        # A broken database must not stop the engine: the UI can still start and
+        # surface the error through system.dbInfo.
+        log.exception("Database initialisation failed")
 
     load_services()
     server = RpcServer(registry)

@@ -14,6 +14,11 @@ files:
 
 # The frozen engine ships alongside the app and is resolved at runtime by
 # src/main/engine/locate.ts as resources/engine/linkedin-outreach-engine.exe.
+#
+# extraResources are copied outside the asar archive by definition, so the .exe
+# stays a real file on disk that the OS can execute — no asarUnpack needed.
+# Everything the engine requires (CPython, sqlite3, httpx) is inside that folder,
+# so the target machine needs neither Python nor Node installed.
 extraResources:
   - from: dist/linkedin-outreach-engine
     to: engine
@@ -21,8 +26,6 @@ extraResources:
       - '**/*'
 
 asar: true
-asarUnpack:
-  - resources/**
 
 win:
   target:

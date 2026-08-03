@@ -3,6 +3,24 @@
 @tailwind utilities;
 
 @layer base {
+  /* The UI is light-only. Without this, a dark OS/GTK theme makes Chromium paint
+     native widgets — notably <select> popups — on a dark background while the
+     option text keeps the page's dark colour, leaving the list unreadable. */
+  :root {
+    color-scheme: light;
+  }
+
+  /* Popup rendering ignores most of the parent's styling, so state the option
+     colours outright rather than relying on inheritance. */
+  option {
+    background-color: #ffffff;
+    color: #0f172a;
+  }
+
+  option:disabled {
+    color: #94a3b8;
+  }
+
   html,
   body,
   #root {

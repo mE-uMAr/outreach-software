@@ -63,15 +63,33 @@ jobs:
       - name: Freeze engine (PyInstaller)
         run: pyinstaller --clean --noconfirm --workpath .pyinstaller engine.spec
 
-      - name: Verify frozen engine responds to RPC
+      - name: Verify the frozen engine is self-contained
         shell: pwsh
         run: |
           $exe = "dist/linkedin-outreach-engine/linkedin-outreach-engine.exe"
           if (-not (Test-Path $exe)) { throw "Frozen engine not found at $exe" }
-          $request = '{"jsonrpc":"2.0","id":1,"method":"system.info"}'
-          $response = $request | & $exe 2>$null | Select-Object -First 1
-          Write-Host "engine replied: $response"
-          if ($response -notmatch '"result"') { throw "Engine did not return a JSON-RPC result" }
+
+          # SQLite must travel inside the bundle — the target machine has no Python.
+          $sqlite = Get-ChildItem -Recurse "dist/linkedin-outreach-engine" `
+            -Include "_sqlite3*.pyd", "sqlite3.dll" -ErrorAction SilentlyContinue
+          if (-not $sqlite) { throw "sqlite3 native modules missing from the frozen engine" }
+          Write-Host "bundled sqlite: $($sqlite.Name -join ', ')"
+
+          # Drive the real binary: handshake, then open the database. Running from
+          # a temp cwd proves it does not depend on the repo being present.
+          $requests = @(
+            '{"jsonrpc":"2.0","id":1,"method":"system.info"}'
+            '{"jsonrpc":"2.0","id":2,"method":"system.dbInfo"}'
+          ) -join "`n"
+
+          Push-Location $env:TEMP
+          $out = $requests | & (Join-Path $env:GITHUB_WORKSPACE $exe) 2>$null
+          Pop-Location
+
+          Write-Host $out
+          if ($out -notmatch '"version"')       { throw "system.info returned no result" }
+          if ($out -notmatch '"sqliteVersion"') { throw "system.dbInfo failed — sqlite3 is not usable in the bundle" }
+          if ($out -match '"error"')            { throw "engine returned a JSON-RPC error" }
 
       - name: Install Node dependencies
         run: npm ci

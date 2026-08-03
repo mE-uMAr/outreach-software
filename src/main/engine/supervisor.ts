@@ -66,7 +66,18 @@ export class EngineSupervisor extends EventEmitter {
   private async spawnAndHandshake(): Promise<void> {
     this.setState({ status: this.state.restarts > 0 ? 'restarting' : 'starting', lastError: null })
 
-    const spec = resolveEngineLaunchSpec()
+    let spec: EngineLaunchSpec
+    try {
+      spec = resolveEngineLaunchSpec()
+    } catch (error) {
+      // A missing bundled engine is not recoverable by restarting, so stop here
+      // with the reason visible in the UI rather than entering a crash loop.
+      const message = (error as Error).message
+      this.log(message)
+      this.setState({ status: 'unavailable', lastError: message })
+      throw error
+    }
+
     this.spec = spec
     this.log(`Starting engine (${spec.mode}): ${spec.command} ${spec.args.join(' ')}`)
 

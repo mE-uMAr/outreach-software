@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, Cpu, Eye, EyeOff, KeyRound, Plug, RefreshCw, XCircle } from 'lucide-react'
 import { SectionCard } from './SectionCard.js'
 import { Button } from '../ui/Button.js'
-import { FieldLabel, FieldSelect, TextInput } from '../ui/Field.js'
+import { FieldLabel, TextInput } from '../ui/Field.js'
+import { Select, type SelectOption } from '../ui/Select.js'
 import { listAiProviders } from '../../data/api.js'
 import { useEngine } from '../../useEngine.js'
 import type { AiProviderSummary, AiConnection } from '../../data/types.js'
@@ -25,6 +26,11 @@ export function AiConnectionCard({ connection, onChange }: AiConnectionCardProps
   }, [])
 
   const active = providers.find((provider) => provider.name === connection.provider)
+
+  const providerOptions: SelectOption[] = providers.map((provider) => ({
+    value: provider.name,
+    label: provider.label
+  }))
 
   const runTest = async (): Promise<void> => {
     setTest({ status: 'testing' })
@@ -50,22 +56,16 @@ export function AiConnectionCard({ connection, onChange }: AiConnectionCardProps
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-[10px] border border-line bg-canvas px-[18px] py-4">
           <FieldLabel hint="Provider used for every AI action in the app">Provider</FieldLabel>
-          <FieldSelect
-            aria-label="AI provider"
+          <Select
+            label="AI provider"
             value={connection.provider}
-            onChange={(event) => {
-              const provider = event.target.value
+            options={providerOptions}
+            onChange={(provider) => {
               const next = providers.find((item) => item.name === provider)
               onChange({ ...connection, provider, model: next?.defaultModel ?? '' })
               setTest({ status: 'idle' })
             }}
-          >
-            {providers.map((provider) => (
-              <option key={provider.name} value={provider.name}>
-                {provider.label}
-              </option>
-            ))}
-          </FieldSelect>
+          />
 
           <div className="mt-3.5">
             <FieldLabel hint="Leave blank to use the provider default">Model</FieldLabel>
