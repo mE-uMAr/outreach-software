@@ -11,7 +11,7 @@
  * No component imports fixtures directly, so nothing else has to change.
  */
 
-import { MOCK_CAMPAIGNS, MOCK_PROVIDERS, MOCK_SETTINGS, MOCK_STATS } from './fixtures.js'
+import { MOCK_AUTH, MOCK_CAMPAIGNS, MOCK_PROVIDERS, MOCK_SETTINGS, MOCK_STATS } from './fixtures.js'
 import {
   progressOf,
   type AiProviderSummary,
@@ -21,7 +21,9 @@ import {
   type CampaignStats,
   type AnalysisStep,
   type AutomationSettings,
-  type CampaignAnalysis
+  type CampaignAnalysis,
+  type ClaudeAuthStatus,
+  type ConnectionTestResult
 } from './types.js'
 
 /** Simulated latency so loading states are exercised during development. */
@@ -108,6 +110,61 @@ export async function createCampaign(
 
 export async function listAiProviders(): Promise<AiProviderSummary[]> {
   return delay(MOCK_PROVIDERS)
+}
+
+/* ------------------------------------------------------------------ sign-in */
+
+let authState: ClaudeAuthStatus = { ...MOCK_AUTH }
+
+/** Mock of `ai.authStatus`. */
+export async function getAuthStatus(): Promise<ClaudeAuthStatus> {
+  return delay({ ...authState })
+}
+
+/**
+ * Mock of `ai.login`. The real call streams `ai.login.url` first, so the
+ * callback mirrors that ordering.
+ */
+export async function signInToClaude(
+  onUrl?: (url: string) => void
+): Promise<ClaudeAuthStatus> {
+  await new Promise((resolve) => setTimeout(resolve, 600))
+  onUrl?.('https://claude.ai/oauth/authorize?mock=1')
+  await new Promise((resolve) => setTimeout(resolve, 1800))
+
+  authState = {
+    ...authState,
+    loggedIn: true,
+    email: 'you@example.com',
+    organization: 'Your Organization',
+    plan: 'pro'
+  }
+  return { ...authState }
+}
+
+/** Mock of `ai.logout` — clears the app session only. */
+export async function signOutOfClaude(): Promise<ClaudeAuthStatus> {
+  authState = { ...MOCK_AUTH }
+  return delay({ ...authState }, 400)
+}
+
+/** Mock of `ai.testConnection`. */
+export async function testAiConnection(
+  provider: string,
+  model?: string
+): Promise<ConnectionTestResult> {
+  await new Promise((resolve) => setTimeout(resolve, 900))
+
+  if (provider === 'claude' && !authState.loggedIn) {
+    return { ok: false, provider, error: 'Not signed in to Claude' }
+  }
+  return {
+    ok: true,
+    provider,
+    model: model || (provider === 'claude' ? 'claude-sonnet-4-5' : 'echo-1'),
+    latencyMs: 780,
+    reply: 'ok'
+  }
 }
 
 export async function getSettings(): Promise<AutomationSettings> {

@@ -147,15 +147,42 @@ Screens implemented so far:
 Only the `system.`, `ai.` and `outreach.` namespaces are reachable from the
 renderer; the allow-list lives in `src/main/ipc.ts`.
 
-## Adding an AI provider
+## AI: signing in with Claude
 
-Subclass `AIProvider` in `engine/services/ai/providers/`, implement `complete()`
-(and `stream()` for real token streaming), then add the class to
-`_PROVIDER_CLASSES` in `engine/services/ai/registry.py`. Nothing else changes.
+The app authenticates with an Anthropic account — **there are no API keys
+anywhere in the system**. `engine/services/ai/` holds the pieces:
 
-The `echo` provider is the default and needs no API key or network, so the full
-pipeline is testable offline. Keys come from `ANTHROPIC_API_KEY` /
-`OPENAI_API_KEY`, or from `config.json` in the user data directory.
+| File | Role |
+| --- | --- |
+| `session.py` | Locates the Claude CLI; pins `CLAUDE_CONFIG_DIR` to the sandbox |
+| `auth.py` | `status` / `login` / `logout` against that sandbox |
+| `providers/claude.py` | Completions + streaming via print mode |
+
+### Sandboxed session
+
+The app keeps its own Claude session in
+`<userData>/claude-session`, isolated via `CLAUDE_CONFIG_DIR`. Signing in here
+never touches — or signs out — a Claude session already on the machine, and
+uninstalling takes the credentials with it.
+
+Verified: with the global session signed in, the app's sandbox independently
+reports `loggedIn: false` until you sign in through the app.
+
+### Sign-in pipeline
+
+`ai.login` runs the interactive flow and pushes notifications as it goes:
+
+| Notification | Meaning |
+| --- | --- |
+| `ai.login.url` | Authorisation link — the app opens it in a browser |
+| `ai.login.output` | Progress lines |
+| `ai.login.complete` | Final signed-in status |
+
+Related methods: `ai.authStatus`, `ai.submitLoginCode`, `ai.cancelLogin`,
+`ai.logout`, `ai.resetSession`, `ai.testConnection`.
+
+The `echo` provider remains as an offline stand-in so the UI and tests run with
+no network and no sign-in.
 
 ## Storage
 
@@ -186,6 +213,13 @@ nor Node.js**:
 | CPython + engine deps (httpx) | frozen by PyInstaller into `resources/engine/` |
 | SQLite | `_sqlite3` + `sqlite3.dll`, bundled with the frozen engine |
 | Database file | created on first run in the user-data directory |
+| Claude session | created on first sign-in, sandboxed per install |
+
+**Claude itself is the one thing not bundled.** It is Anthropic's software, so
+redistributing it inside this installer is not ours to do, and a signed-in
+session is a personal credential that cannot ship with a build — each user signs
+in once with their own account. The app detects whether Claude is present and
+says so plainly instead of failing obscurely.
 
 A packaged build runs the frozen engine and *only* that — there is deliberately
 no fallback to a system interpreter, so a broken package reports itself instead

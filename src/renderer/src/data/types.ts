@@ -69,11 +69,30 @@ export interface AiProviderSummary {
   unavailableReason: string | null
 }
 
-/** Which model the app talks to, and the credential for it. */
+/** Which model the app talks to. No credential: sign-in is delegated to Claude. */
 export interface AiConnection {
   provider: string
   model: string
-  apiKey: string
+}
+
+/** Sign-in state of the app's own sandboxed Claude session. */
+export interface ClaudeAuthStatus {
+  installed: boolean
+  loggedIn: boolean
+  email: string | null
+  organization: string | null
+  plan: string | null
+  sessionDir: string
+  error?: string
+}
+
+export interface ConnectionTestResult {
+  ok: boolean
+  provider: string
+  model?: string
+  latencyMs?: number
+  reply?: string
+  error?: string
 }
 
 /* ----------------------------------------------------------------- settings */

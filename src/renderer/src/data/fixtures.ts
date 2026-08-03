@@ -1,5 +1,6 @@
 import type {
   AiProviderSummary,
+  ClaudeAuthStatus,
   AutomationSettings,
   Campaign,
   CampaignStats
@@ -120,8 +121,8 @@ export const MOCK_STATS: CampaignStats = {
 
 export const MOCK_PROVIDERS: AiProviderSummary[] = [
   {
-    name: 'claude-code',
-    label: 'Claude Code (your subscription)',
+    name: 'claude',
+    label: 'Claude',
     defaultModel: 'default',
     available: true,
     requiresKey: false,
@@ -134,30 +135,22 @@ export const MOCK_PROVIDERS: AiProviderSummary[] = [
     available: true,
     requiresKey: false,
     unavailableReason: null
-  },
-  {
-    name: 'anthropic',
-    label: 'Anthropic (Claude)',
-    defaultModel: 'claude-sonnet-4-5',
-    available: false,
-    requiresKey: true,
-    unavailableReason: 'No API key configured'
-  },
-  {
-    name: 'openai',
-    label: 'OpenAI',
-    defaultModel: 'gpt-4o-mini',
-    available: false,
-    requiresKey: true,
-    unavailableReason: 'No API key configured'
   }
 ]
 
+export const MOCK_AUTH: ClaudeAuthStatus = {
+  installed: true,
+  loggedIn: false,
+  email: null,
+  organization: null,
+  plan: null,
+  sessionDir: '~/.config/linkedin-outreach/claude-session'
+}
+
 export const MOCK_SETTINGS: AutomationSettings = {
   ai: {
-    provider: 'claude-code',
-    model: '',
-    apiKey: ''
+    provider: 'claude',
+    model: ''
   },
   schedule: [
     { key: 'mon', short: 'Mon', full: 'Monday', enabled: true, action: 'send', dailyLimit: 20 },
