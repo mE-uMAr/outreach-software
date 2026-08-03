@@ -39,7 +39,7 @@ _EOF = object()
 class RpcContext:
     """Handed to any method declaring a ``ctx`` parameter."""
 
-    def __init__(self, server: "RpcServer", request: Request) -> None:
+    def __init__(self, server: RpcServer, request: Request) -> None:
         self._server = server
         self.request = request
 

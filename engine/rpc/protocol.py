@@ -6,11 +6,11 @@ Mirrors src/shared/rpc.ts — keep the two in sync when changing error codes.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Union
+from typing import Any
 
 JSONRPC_VERSION = "2.0"
 
-RpcId = Union[int, str]
+RpcId = int | str
 
 
 class ErrorCode:
@@ -89,7 +89,7 @@ def parse_message(payload: Any) -> Request:
         raise InvalidParams("params must be an object (positional params unsupported)")
 
     request_id = payload.get("id")
-    if request_id is not None and not isinstance(request_id, (int, str)):
+    if request_id is not None and not isinstance(request_id, int | str):
         raise RpcException("id must be a number, string or null", ErrorCode.INVALID_REQUEST)
 
     return Request(method=method, params=params, id=request_id)

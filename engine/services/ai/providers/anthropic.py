@@ -64,7 +64,7 @@ class AnthropicProvider(AIProvider):
         return payload
 
     @staticmethod
-    def _raise_for_status(response: "httpx.Response", body: str) -> None:
+    def _raise_for_status(response: httpx.Response, body: str) -> None:
         if response.status_code < 400:
             return
         message = body
@@ -111,24 +111,26 @@ class AnthropicProvider(AIProvider):
     async def stream(self, request: CompletionRequest) -> AsyncIterator[str]:
         httpx = require_httpx()
         timeout = get_settings().request_timeout_seconds
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
+        async with (
+            httpx.AsyncClient(timeout=timeout) as client,
+            client.stream(
                 "POST", API_URL, headers=self._headers(), json=self._payload(request, stream=True)
-            ) as response:
-                if response.status_code >= 400:
-                    self._raise_for_status(response, (await response.aread()).decode("utf-8"))
+            ) as response,
+        ):
+            if response.status_code >= 400:
+                self._raise_for_status(response, (await response.aread()).decode("utf-8"))
 
-                async for line in response.aiter_lines():
-                    if not line.startswith("data:"):
-                        continue
-                    raw = line[5:].strip()
-                    if not raw:
-                        continue
-                    try:
-                        event = json.loads(raw)
-                    except json.JSONDecodeError:
-                        continue
-                    if event.get("type") == "content_block_delta":
-                        delta = event.get("delta", {})
-                        if delta.get("type") == "text_delta":
-                            yield delta.get("text", "")
+            async for line in response.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                raw = line[5:].strip()
+                if not raw:
+                    continue
+                try:
+                    event = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if event.get("type") == "content_block_delta":
+                    delta = event.get("delta", {})
+                    if delta.get("type") == "text_delta":
+                        yield delta.get("text", "")

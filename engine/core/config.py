@@ -32,7 +32,7 @@ def user_data_dir() -> Path:
 @dataclass(slots=True)
 class Settings:
     data_dir: Path = field(default_factory=user_data_dir)
-    default_provider: str = "echo"
+    default_provider: str = "claude-code"
     default_model: str = ""
     request_timeout_seconds: float = 120.0
     providers: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -46,7 +46,19 @@ class Settings:
         return self.data_dir / "outreach.db"
 
     def api_key(self, provider: str) -> str | None:
-        """Resolve a provider key: config file first, then environment."""
+        """Resolve a provider key.
+
+        Order: credentials pushed at runtime by the app (OS-encrypted on disk),
+        then config.json, then the environment. The runtime store wins so that
+        connecting an account in the UI takes effect immediately.
+        """
+        # Imported lazily: engine.core must not depend on engine.services.
+        from ..services.ai.credentials import get_credential
+
+        runtime = get_credential(provider)
+        if runtime:
+            return runtime
+
         configured = self.providers.get(provider, {}).get("apiKey")
         if configured:
             return str(configured)

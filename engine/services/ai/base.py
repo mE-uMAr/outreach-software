@@ -21,7 +21,7 @@ class Message:
     content: str
 
     @classmethod
-    def from_dict(cls, raw: Any) -> "Message":
+    def from_dict(cls, raw: Any) -> Message:
         if not isinstance(raw, dict):
             raise ValueError("Each message must be an object with role and content")
         role = raw.get("role", "user")

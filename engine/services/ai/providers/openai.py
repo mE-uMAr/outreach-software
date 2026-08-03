@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
@@ -68,14 +69,12 @@ class OpenAIProvider(AIProvider):
         return payload
 
     @staticmethod
-    def _raise_for_status(response: "httpx.Response", body: str) -> None:
+    def _raise_for_status(response: httpx.Response, body: str) -> None:
         if response.status_code < 400:
             return
         message = body
-        try:
+        with contextlib.suppress(json.JSONDecodeError):
             message = json.loads(body).get("error", {}).get("message", body)
-        except json.JSONDecodeError:
-            pass
         raise RpcException(
             f"OpenAI API error ({response.status_code}): {message}",
             ErrorCode.ENGINE_ERROR,
@@ -114,24 +113,26 @@ class OpenAIProvider(AIProvider):
         httpx = require_httpx()
         timeout = get_settings().request_timeout_seconds
         url = f"{self._base_url()}/chat/completions"
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream(
+        async with (
+            httpx.AsyncClient(timeout=timeout) as client,
+            client.stream(
                 "POST", url, headers=self._headers(), json=self._payload(request, stream=True)
-            ) as response:
-                if response.status_code >= 400:
-                    self._raise_for_status(response, (await response.aread()).decode("utf-8"))
+            ) as response,
+        ):
+            if response.status_code >= 400:
+                self._raise_for_status(response, (await response.aread()).decode("utf-8"))
 
-                async for line in response.aiter_lines():
-                    if not line.startswith("data:"):
-                        continue
-                    raw = line[5:].strip()
-                    if not raw or raw == "[DONE]":
-                        continue
-                    try:
-                        event = json.loads(raw)
-                    except json.JSONDecodeError:
-                        continue
-                    for choice in event.get("choices", []):
-                        delta = choice.get("delta", {}).get("content")
-                        if delta:
-                            yield delta
+            async for line in response.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                raw = line[5:].strip()
+                if not raw or raw == "[DONE]":
+                    continue
+                try:
+                    event = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                for choice in event.get("choices", []):
+                    delta = choice.get("delta", {}).get("content")
+                    if delta:
+                        yield delta

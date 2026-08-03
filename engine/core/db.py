@@ -89,23 +89,21 @@ def initialize() -> dict[str, Any]:
     """Create or upgrade the database. Safe to call more than once."""
     global _initialised
 
-    with _init_lock:
-        with connect() as connection:
-            version = _current_version(connection)
-            applied: list[str] = []
+    with _init_lock, connect() as connection:
+        version = _current_version(connection)
+        applied: list[str] = []
 
-            for migration in MIGRATIONS:
-                if migration.version <= version:
-                    continue
-                log.info("Applying migration %d (%s)", migration.version, migration.name)
-                connection.executescript(migration.sql)
-                # executescript commits and ends any open transaction, so the
-                # version bump has to follow it rather than share a transaction.
-                connection.execute(f"PRAGMA user_version = {migration.version}")
-                applied.append(f"{migration.version}:{migration.name}")
+        for migration in MIGRATIONS:
+            if migration.version <= version:
+                continue
+            log.info("Applying migration %d (%s)", migration.version, migration.name)
+            connection.executescript(migration.sql)
+            # executescript commits and ends any open transaction, so the version
+            # bump has to follow it rather than share a transaction.
+            connection.execute(f"PRAGMA user_version = {migration.version}")
+            applied.append(f"{migration.version}:{migration.name}")
 
-            final_version = _current_version(connection)
-
+        final_version = _current_version(connection)
         _initialised = True
 
     if applied:

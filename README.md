@@ -53,6 +53,7 @@ supervisor captures. A stray `print()` in a service corrupts the stream.
 | `engine/rpc/` | Protocol, method registry, stdio server |
 | `engine/services/` | RPC-exposed methods, grouped by namespace |
 | `engine/services/ai/` | Provider abstraction + implementations |
+| `engine/core/db.py` | SQLite connection + versioned migrations |
 | `.github/workflows/` | Windows build pipeline |
 
 ## Prerequisites
@@ -155,6 +156,42 @@ Subclass `AIProvider` in `engine/services/ai/providers/`, implement `complete()`
 The `echo` provider is the default and needs no API key or network, so the full
 pipeline is testable offline. Keys come from `ANTHROPIC_API_KEY` /
 `OPENAI_API_KEY`, or from `config.json` in the user data directory.
+
+## Storage
+
+SQLite, in the app's user-data directory (`%APPDATA%/linkedin-outreach` on
+Windows). `engine/core/db.py` owns the connection and applies versioned
+migrations at startup via `PRAGMA user_version`.
+
+`MIGRATIONS` is currently **empty** — no tables yet. Add one per feature and
+never edit a released migration:
+
+```python
+MIGRATIONS: tuple[Migration, ...] = (
+    Migration(version=1, name="campaigns", sql="CREATE TABLE campaigns (...);"),
+)
+```
+
+Inspect the live database from the UI or over RPC with `system.dbInfo` (path,
+schema version, SQLite version, per-table row counts).
+
+## Distribution
+
+The installed app is self-contained — **the target machine needs neither Python
+nor Node.js**:
+
+| Dependency | How it ships |
+| --- | --- |
+| Chromium + Node runtime | inside Electron |
+| CPython + engine deps (httpx) | frozen by PyInstaller into `resources/engine/` |
+| SQLite | `_sqlite3` + `sqlite3.dll`, bundled with the frozen engine |
+| Database file | created on first run in the user-data directory |
+
+A packaged build runs the frozen engine and *only* that — there is deliberately
+no fallback to a system interpreter, so a broken package reports itself instead
+of failing later with a confusing "python not found". CI enforces this: it greps
+the bundle for the SQLite natives and drives the real `.exe` from a temp
+directory, asserting both `system.info` and `system.dbInfo` succeed.
 
 ## Windows build
 

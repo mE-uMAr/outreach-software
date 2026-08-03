@@ -10,10 +10,14 @@ from ...core.config import get_settings
 from ...rpc.protocol import ErrorCode, RpcException
 from .base import AIProvider
 from .providers.anthropic import AnthropicProvider
+from .providers.claude_code import ClaudeCodeProvider
 from .providers.echo import EchoProvider
 from .providers.openai import OpenAIProvider
 
 _PROVIDER_CLASSES: tuple[type[AIProvider], ...] = (
+    # Claude Code first: it uses the user's existing subscription and needs no
+    # API key, so it is the default when the CLI is installed.
+    ClaudeCodeProvider,
     EchoProvider,
     AnthropicProvider,
     OpenAIProvider,
