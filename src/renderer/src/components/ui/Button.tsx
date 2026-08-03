@@ -12,7 +12,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-brand-600 text-white shadow-button hover:bg-brand-700 active:bg-brand-700',
+  // Disabled primary is a flat grey in the design, not a faded blue.
+  primary:
+    'bg-brand-600 text-white hover:bg-brand-700 hover:-translate-y-px hover:shadow-button active:translate-y-0 ' +
+    'disabled:bg-slate-300 disabled:text-slate-400 disabled:opacity-100 disabled:shadow-none disabled:translate-y-0',
   secondary: 'bg-white text-ink border border-line hover:bg-slate-50 active:bg-slate-100',
   ghost: 'bg-transparent text-ink-muted hover:bg-slate-100 hover:text-ink',
   danger: 'bg-white text-red-600 border border-red-200 hover:bg-red-50'

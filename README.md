@@ -4,9 +4,10 @@ Electron desktop app with a Python sidecar engine. The UI never does real work �
 it sends JSON-RPC calls to the engine, which owns outreach logic and AI provider
 access.
 
-This repository is currently **scaffolding**: the transport, process supervision,
-provider abstraction and Windows build pipeline are in place and verified. The
-outreach feature set is intentionally empty.
+The transport, process supervision, provider abstraction and Windows build
+pipeline are in place and verified. The UI is built out against **mock data** —
+the engine's `outreach.*` namespace is still empty, and swapping mocks for real
+calls happens in one file (see [Frontend state](#frontend-state)).
 
 ## Architecture
 
@@ -43,7 +44,11 @@ supervisor captures. A stray `print()` in a service corrupts the stream.
 | `src/main/engine/supervisor.ts` | Spawn, handshake, crash recovery, shutdown |
 | `src/main/rpc-client.ts` | JSON-RPC client over the child process' stdio |
 | `src/preload/` | The only API exposed to the renderer |
-| `src/renderer/` | React UI (currently a diagnostics shell) |
+| `src/renderer/` | React UI (Tailwind + lucide icons) |
+| `src/renderer/src/data/api.ts` | **Mock data seam** — swap these bodies for engine calls |
+| `src/renderer/src/pages/` | Campaigns dashboard and Automation Settings |
+| `src/renderer/src/components/campaigns/` | Table, stats, create-campaign flow |
+| `src/renderer/src/components/settings/` | Schedule, limits, follow-ups, templates, sheets, AI |
 | `src/shared/rpc.ts` | Wire contract shared by both TypeScript sides |
 | `engine/rpc/` | Protocol, method registry, stdio server |
 | `engine/services/` | RPC-exposed methods, grouped by namespace |
@@ -55,25 +60,26 @@ supervisor captures. A stray `print()` in a service corrupts the stream.
 - Node.js 20+
 - Python 3.11+
 
-## Setup
+## Running it
+
+One command sets everything up and starts the app:
 
 ```bash
-npm install
+npm run up           # or: ./scripts/up.sh
+```
 
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-source .venv/bin/activate
-pip install -r requirements-dev.txt
+It installs Node dependencies, downloads the Electron binary if the postinstall
+was skipped, creates `.venv`, installs the engine's dependencies, smoke-tests the
+engine over stdio, then launches Electron with HMR.
+
+```bash
+npm run up -- --setup-only   # prepare dependencies without launching
+npm run up -- --clean        # wipe node_modules and .venv first
+npm run dev                  # skip the checks, start straight away
 ```
 
 The app finds the interpreter in this order: `LINKEDIN_OUTREACH_PYTHON`, then
 `.venv/`, then `python`/`python3` on PATH.
-
-## Running
-
-```bash
-npm run dev          # Electron + Vite HMR; the engine is spawned automatically
-```
 
 The engine can also be driven directly, which is the fastest way to test a new
 method:
@@ -89,6 +95,30 @@ npm run typecheck    # main, preload, renderer
 pytest -q            # engine
 ruff check engine    # engine lint
 ```
+
+## Frontend state
+
+The UI is built against mock data. Every screen reads through
+`src/renderer/src/data/api.ts`, whose functions are async and already shaped like
+the engine calls that will replace them:
+
+```ts
+export async function listCampaigns(query: CampaignQuery): Promise<CampaignPage> {
+  return engineCall<CampaignPage>('outreach.listCampaigns', query)
+}
+```
+
+No component imports fixtures directly, so swapping in real RPC is a change of
+function bodies only. `analyzeSalesNavigatorUrl` already takes a progress
+callback so the create-campaign modal will map straight onto `engine.progress`
+notifications.
+
+Screens implemented so far:
+
+- **Campaigns** — stats, filterable/sortable table, pagination, row actions
+- **Create Campaign** — three-phase modal: URL input → AI analysis → approve
+- **Automation Settings** — weekly schedule, activity limits, follow-up rules,
+  message templates, Google Sheets, AI connection
 
 ## Adding an RPC method
 

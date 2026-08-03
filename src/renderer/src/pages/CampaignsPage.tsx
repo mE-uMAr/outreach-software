@@ -6,13 +6,21 @@ import { CampaignsTable } from '../components/campaigns/CampaignsTable.js'
 import { Pagination } from '../components/campaigns/Pagination.js'
 import { StatsGrid } from '../components/campaigns/StatsGrid.js'
 import { TableToolbar, type StatusFilter } from '../components/campaigns/TableToolbar.js'
+import { CreateCampaignModal } from '../components/campaigns/CreateCampaignModal.js'
 import {
+  createCampaign,
   deleteCampaign,
   getCampaignStats,
   listCampaigns,
   setCampaignStatus
 } from '../data/api.js'
-import type { Campaign, CampaignPage, CampaignSort, CampaignStats } from '../data/types.js'
+import type {
+  Campaign,
+  CampaignAnalysis,
+  CampaignPage,
+  CampaignSort,
+  CampaignStats
+} from '../data/types.js'
 
 const PAGE_SIZE = 5
 
@@ -30,6 +38,7 @@ export function CampaignsPage(): JSX.Element {
   const [sort, setSort] = useState<CampaignSort>('recent')
   const [page, setPage] = useState(1)
   const [reloadToken, setReloadToken] = useState(0)
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     void getCampaignStats().then(setStats)
@@ -57,6 +66,28 @@ export function CampaignsPage(): JSX.Element {
   }, [result.total, page])
 
   const reload = useCallback(() => setReloadToken((token) => token + 1), [])
+
+  const onCampaignCreated = useCallback(
+    async (analysis: CampaignAnalysis, name: string) => {
+      await createCampaign({
+        name,
+        source: 'sales-navigator',
+        targetProspects: analysis.targetProspects,
+        dailyTarget: analysis.dailyConnections,
+        autoPlanned: true,
+        startDate: null,
+        estimatedEndDate: analysis.expectedCompletion
+      })
+      setCreating(false)
+      // A new campaign is the newest one, so show it at the top of page one.
+      setSort('recent')
+      setStatus('all')
+      setSearch('')
+      setPage(1)
+      reload()
+    },
+    [reload]
+  )
 
   const onFilterChange = useCallback(<T,>(setter: (value: T) => void) => {
     return (value: T): void => {
@@ -94,7 +125,11 @@ export function CampaignsPage(): JSX.Element {
             and analytics.
           </p>
         </div>
-        <Button variant="primary" icon={<Plus size={17} strokeWidth={2.4} />}>
+        <Button
+          variant="primary"
+          onClick={() => setCreating(true)}
+          icon={<Plus size={17} strokeWidth={2.4} />}
+        >
           New Campaign
         </Button>
       </div>
@@ -137,6 +172,12 @@ export function CampaignsPage(): JSX.Element {
           onPageChange={setPage}
         />
       </Card>
+
+      <CreateCampaignModal
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreated={(analysis, name) => void onCampaignCreated(analysis, name)}
+      />
     </div>
   )
 }

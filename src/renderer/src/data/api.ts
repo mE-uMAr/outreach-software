@@ -19,7 +19,9 @@ import {
   type CampaignPage,
   type CampaignQuery,
   type CampaignStats,
-  type OutreachSettings
+  type AnalysisStep,
+  type AutomationSettings,
+  type CampaignAnalysis
 } from './types.js'
 
 /** Simulated latency so loading states are exercised during development. */
@@ -108,10 +110,85 @@ export async function listAiProviders(): Promise<AiProviderSummary[]> {
   return delay(MOCK_PROVIDERS)
 }
 
-export async function getSettings(): Promise<OutreachSettings> {
-  return delay(MOCK_SETTINGS)
+export async function getSettings(): Promise<AutomationSettings> {
+  // Deep copy so edits in the UI do not mutate the fixture in place.
+  return delay(structuredClone(MOCK_SETTINGS))
 }
 
-export async function saveSettings(patch: Partial<OutreachSettings>): Promise<OutreachSettings> {
-  return delay({ ...MOCK_SETTINGS, ...patch })
+export async function saveSettings(settings: AutomationSettings): Promise<AutomationSettings> {
+  return delay(structuredClone(settings), 500)
+}
+
+/* -------------------------------------------------- campaign creation flow */
+
+const ANALYSIS_STEPS: AnalysisStep[] = [
+  { label: 'Understanding search filters…', progress: 0.18 },
+  { label: 'Counting matching prospects…', progress: 0.42 },
+  { label: 'Checking for duplicates…', progress: 0.63 },
+  { label: 'Applying your daily limits…', progress: 0.82 },
+  { label: 'Preparing campaign plan…', progress: 1 }
+]
+
+/** A Sales Navigator search URL is the only accepted input. */
+export function isSalesNavigatorUrl(value: string): boolean {
+  return /^https?:\/\/(www\.)?linkedin\.com\/sales\/search\//i.test(value.trim())
+}
+
+/**
+ * Mock of `outreach.analyzeSalesNavigatorUrl`. Reports progress through the
+ * callback the same way the engine will push `engine.progress` notifications,
+ * so the modal will not change when this is swapped for a real call.
+ */
+export async function analyzeSalesNavigatorUrl(
+  url: string,
+  onProgress?: (step: AnalysisStep) => void
+): Promise<CampaignAnalysis> {
+  for (const step of ANALYSIS_STEPS) {
+    await new Promise((resolve) => setTimeout(resolve, 1400))
+    onProgress?.(step)
+  }
+
+  const targetProspects = 500
+  const dailyConnections = 20
+  const estimatedDurationDays = Math.ceil(targetProspects / dailyConnections)
+  const completion = new Date()
+  // Working days only — weekends are skipped by the scheduler.
+  completion.setDate(completion.getDate() + Math.ceil((estimatedDurationDays / 5) * 7))
+  const expectedCompletion = completion.toISOString().slice(0, 10)
+
+  return {
+    suggestedName: nameFromUrl(url),
+    targetProspects,
+    estimatedDurationDays,
+    dailyConnections,
+    expectedCompletion,
+    recommendations: [
+      `${targetProspects} unique prospects detected`,
+      'Daily outreach follows safe LinkedIn limits',
+      `Estimated completion in ${estimatedDurationDays} working days`,
+      'No duplicate prospects found',
+      'Campaign ready to launch'
+    ],
+    rationale: {
+      prospects: targetProspects,
+      dailyLimit: dailyConnections,
+      completionDate: expectedCompletion
+    }
+  }
+}
+
+/** Derive a readable campaign name from the search keywords in the URL. */
+function nameFromUrl(url: string): string {
+  try {
+    const keywords = new URL(url).searchParams.get('keywords')
+    if (keywords) {
+      return keywords
+        .split(/\s+/)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+    }
+  } catch {
+    /* fall through to the default below */
+  }
+  return 'Dubai CEOs'
 }

@@ -1,4 +1,9 @@
-import type { AiProviderSummary, Campaign, CampaignStats, OutreachSettings } from './types.js'
+import type {
+  AiProviderSummary,
+  AutomationSettings,
+  Campaign,
+  CampaignStats
+} from './types.js'
 
 /** Static fixtures backing the mock API. Replaced wholesale by engine data. */
 
@@ -119,6 +124,7 @@ export const MOCK_PROVIDERS: AiProviderSummary[] = [
     label: 'Echo (offline)',
     defaultModel: 'echo-1',
     available: true,
+    requiresKey: false,
     unavailableReason: null
   },
   {
@@ -126,6 +132,7 @@ export const MOCK_PROVIDERS: AiProviderSummary[] = [
     label: 'Anthropic (Claude)',
     defaultModel: 'claude-sonnet-4-5',
     available: false,
+    requiresKey: true,
     unavailableReason: 'No API key configured'
   },
   {
@@ -133,16 +140,76 @@ export const MOCK_PROVIDERS: AiProviderSummary[] = [
     label: 'OpenAI',
     defaultModel: 'gpt-4o-mini',
     available: false,
+    requiresKey: true,
     unavailableReason: 'No API key configured'
   }
 ]
 
-export const MOCK_SETTINGS: OutreachSettings = {
-  defaultProvider: 'echo',
-  defaultModel: 'echo-1',
-  dailyConnectionLimit: 25,
-  workingHoursStart: '09:00',
-  workingHoursEnd: '18:00',
-  pauseOnWeekends: true,
-  autoPlanDailyTargets: true
+export const MOCK_SETTINGS: AutomationSettings = {
+  ai: {
+    provider: 'echo',
+    model: 'echo-1',
+    apiKey: ''
+  },
+  schedule: [
+    { key: 'mon', short: 'Mon', full: 'Monday', enabled: true, action: 'send', dailyLimit: 20 },
+    { key: 'tue', short: 'Tue', full: 'Tuesday', enabled: true, action: 'send', dailyLimit: 20 },
+    { key: 'wed', short: 'Wed', full: 'Wednesday', enabled: true, action: 'send', dailyLimit: 20 },
+    { key: 'thu', short: 'Thu', full: 'Thursday', enabled: true, action: 'send', dailyLimit: 20 },
+    { key: 'fri', short: 'Fri', full: 'Friday', enabled: true, action: 'send', dailyLimit: 20 },
+    { key: 'sat', short: 'Sat', full: 'Saturday', enabled: false, action: 'none', dailyLimit: 0 },
+    { key: 'sun', short: 'Sun', full: 'Sunday', enabled: false, action: 'none', dailyLimit: 0 }
+  ],
+  limits: {
+    connectionRequests: 20,
+    postLikes: 30,
+    postComments: 15
+  },
+  followUps: {
+    secondFollowUpDays: 3,
+    thirdFollowUpDays: 5,
+    autoWithdrawPending: true
+  },
+  templates: [
+    {
+      id: 'connection-note',
+      title: 'Connection Note',
+      description: 'Sent with the connection request. Max 300 chars.',
+      subject: '',
+      body: '',
+      maxChars: 300
+    },
+    {
+      id: 'first-message',
+      title: 'First Message After Acceptance',
+      description: 'First message after they accept your connection.',
+      subject: '',
+      body: '',
+      maxChars: 1000
+    },
+    {
+      id: 'second-followup',
+      title: 'Second Follow-up',
+      description: 'Sent after no reply to the first message.',
+      subject: '',
+      body: '',
+      maxChars: 1000
+    },
+    {
+      id: 'third-followup',
+      title: 'Third Follow-up',
+      description: 'Final touch — sent if no reply to second follow-up.',
+      subject: '',
+      body: '',
+      maxChars: 1000
+    }
+  ],
+  sheets: {
+    connected: true,
+    name: 'LinkedIn Outreach Master Sheet',
+    url: 'docs.google.com/spreadsheets/d/1aB…',
+    lastSynced: '2 minutes ago',
+    rowsSynced: 1247,
+    autoSyncMinutes: 5
+  }
 }

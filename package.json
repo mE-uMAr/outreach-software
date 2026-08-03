@@ -1,7 +1,7 @@
 {
   "name": "linkedin-outreach",
   "version": "0.1.0",
-  "description": "LinkedIn Outreach — Electron desktop app with a Python engine sidecar",
+  "description": "LinkedIn Outreach \u2014 Electron desktop app with a Python engine sidecar",
   "main": "./out/main/index.js",
   "author": "Hashed System",
   "license": "UNLICENSED",
@@ -12,6 +12,8 @@
   },
   "scripts": {
     "dev": "electron-vite dev",
+    "up": "bash scripts/up.sh",
+    "up:setup": "bash scripts/up.sh --setup-only",
     "start": "electron-vite preview",
     "build": "npm run typecheck && electron-vite build",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
