@@ -32,7 +32,7 @@ def user_data_dir() -> Path:
 @dataclass(slots=True)
 class Settings:
     data_dir: Path = field(default_factory=user_data_dir)
-    default_provider: str = "claude-code"
+    default_provider: str = "claude"
     default_model: str = ""
     request_timeout_seconds: float = 120.0
     providers: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -46,29 +46,14 @@ class Settings:
         return self.data_dir / "outreach.db"
 
     def api_key(self, provider: str) -> str | None:
-        """Resolve a provider key.
-
-        Order: credentials pushed at runtime by the app (OS-encrypted on disk),
-        then config.json, then the environment. The runtime store wins so that
-        connecting an account in the UI takes effect immediately.
-        """
-        # Imported lazily: engine.core must not depend on engine.services.
-        from ..services.ai.credentials import get_credential
-
-        runtime = get_credential(provider)
-        if runtime:
-            return runtime
-
+        """Resolve a provider key, if that provider still uses one."""
         configured = self.providers.get(provider, {}).get("apiKey")
         if configured:
             return str(configured)
 
-        env_names = {
-            "anthropic": "ANTHROPIC_API_KEY",
-            "openai": "OPENAI_API_KEY",
-        }
-        env_name = env_names.get(provider)
-        return os.environ.get(env_name) if env_name else None
+        # No provider takes an API key any more; Claude authenticates through
+        # its own sandboxed session. Kept so callers have a stable interface.
+        return None
 
     def to_public_dict(self) -> dict[str, Any]:
         """Serializable view with secrets reduced to a boolean."""

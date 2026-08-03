@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import time
 import uuid
 from typing import Any
 
-from ...rpc.protocol import InvalidParams
+from ...rpc.protocol import InvalidParams, RpcException
 from ...rpc.registry import method
 from ...rpc.server import RpcContext
+from . import auth, session
 from .base import CompletionRequest, Message
 from .registry import available_providers, get_provider
 
@@ -105,5 +107,89 @@ async def ai_stream(
         "streamId": identifier,
         "text": text,
         "provider": backend.name,
-        "model": request.model or backend.default_model,
+        "model": request.model or backend.default_model or backend.name,
+    }
+
+
+# ------------------------------------------------------------------- sign-in
+
+
+@method("ai.authStatus")
+async def ai_auth_status() -> dict[str, Any]:
+    """Whether the app's sandboxed Claude session is signed in."""
+    return await auth.status()
+
+
+@method("ai.login")
+async def ai_login(ctx: RpcContext) -> dict[str, Any]:
+    """Start the Claude sign-in and wait for it to complete.
+
+    The authorisation link arrives as an `ai.login.url` notification so the app
+    can open a browser; progress lines follow as `ai.login.output`.
+    """
+
+    def on_event(kind: str, payload: dict[str, Any]) -> None:
+        ctx.notify(f"ai.login.{kind}", payload)
+
+    result = await auth.login(on_event)
+    ctx.notify("ai.login.complete", result)
+    return result
+
+
+@method("ai.submitLoginCode")
+async def ai_submit_login_code(code: str) -> dict[str, Any]:
+    """Pass an authorisation code to a sign-in that is waiting for one."""
+    await auth.submit_code(code)
+    return {"submitted": True}
+
+
+@method("ai.cancelLogin")
+def ai_cancel_login() -> dict[str, Any]:
+    """Abort an in-flight sign-in."""
+    return {"cancelled": auth.cancel()}
+
+
+@method("ai.logout")
+async def ai_logout() -> dict[str, Any]:
+    """Sign out of the app's session. The machine's own Claude login is untouched."""
+    return await auth.logout()
+
+
+@method("ai.resetSession")
+def ai_reset_session() -> dict[str, Any]:
+    """Delete the sandboxed session directory outright."""
+    return {"cleared": session.clear_session()}
+
+
+@method("ai.testConnection")
+async def ai_test_connection(
+    provider: str | None = None, model: str | None = None
+) -> dict[str, Any]:
+    """Verify the connection by running the smallest possible real completion."""
+    backend = get_provider(provider)
+
+    available, reason = backend.is_available()
+    if not available:
+        return {"ok": False, "provider": backend.name, "error": reason}
+
+    request = CompletionRequest(
+        messages=[Message(role="user", content="Reply with the single word: ok")],
+        model=model,
+        max_tokens=16,
+        temperature=0,
+    )
+
+    started = time.perf_counter()
+    try:
+        result = await backend.complete(request)
+    except RpcException as error:
+        return {"ok": False, "provider": backend.name, "error": error.message}
+
+    return {
+        "ok": True,
+        "provider": backend.name,
+        "model": result.model,
+        "latencyMs": round((time.perf_counter() - started) * 1000),
+        "reply": result.text.strip()[:120],
+        "usage": result.usage.to_dict(),
     }

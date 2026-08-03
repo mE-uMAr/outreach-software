@@ -9,18 +9,15 @@ from __future__ import annotations
 from ...core.config import get_settings
 from ...rpc.protocol import ErrorCode, RpcException
 from .base import AIProvider
-from .providers.anthropic import AnthropicProvider
-from .providers.claude_code import ClaudeCodeProvider
+from .providers.claude import ClaudeProvider
 from .providers.echo import EchoProvider
-from .providers.openai import OpenAIProvider
 
+#: Claude is the only real backend — the app authenticates with an Anthropic
+#: account rather than collecting API keys. `echo` stays as an offline stand-in
+#: so the UI and tests run with no network and no sign-in.
 _PROVIDER_CLASSES: tuple[type[AIProvider], ...] = (
-    # Claude Code first: it uses the user's existing subscription and needs no
-    # API key, so it is the default when the CLI is installed.
-    ClaudeCodeProvider,
+    ClaudeProvider,
     EchoProvider,
-    AnthropicProvider,
-    OpenAIProvider,
 )
 
 _instances: dict[str, AIProvider] = {}

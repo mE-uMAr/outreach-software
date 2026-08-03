@@ -120,6 +120,14 @@ export const MOCK_STATS: CampaignStats = {
 
 export const MOCK_PROVIDERS: AiProviderSummary[] = [
   {
+    name: 'claude-code',
+    label: 'Claude Code (your subscription)',
+    defaultModel: 'default',
+    available: true,
+    requiresKey: false,
+    unavailableReason: null
+  },
+  {
     name: 'echo',
     label: 'Echo (offline)',
     defaultModel: 'echo-1',
@@ -147,8 +155,8 @@ export const MOCK_PROVIDERS: AiProviderSummary[] = [
 
 export const MOCK_SETTINGS: AutomationSettings = {
   ai: {
-    provider: 'echo',
-    model: 'echo-1',
+    provider: 'claude-code',
+    model: '',
     apiKey: ''
   },
   schedule: [

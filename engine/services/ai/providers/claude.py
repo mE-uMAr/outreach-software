@@ -1,32 +1,25 @@
-"""Claude Code provider.
+"""Claude provider.
 
-Drives the locally installed `claude` CLI in print mode (`-p`). Authentication is
-whatever the user already set up with `claude login`, so their Claude
-subscription is used directly and this app never sees or stores a credential.
+Runs the local Claude CLI in print mode (`-p`) against the app's own sandboxed
+session, so the user's Anthropic subscription is used directly and no API key is
+ever collected or stored.
 
-This is the officially supported non-interactive interface to Claude Code, so it
-is stable in a way that scripting the claude.ai web app would not be.
-
-Requires Claude Code to be installed on the machine. It is the one component
-that is *not* bundled with the app; when it is missing the provider reports
-itself unavailable and the rest of the engine carries on.
+The session lives in the app's data directory (see session.py), which keeps it
+separate from any Claude login already on the machine.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-import os
-import shutil
-import sys
 from collections.abc import AsyncIterator
-from pathlib import Path
 from typing import Any
 
 from ....core.config import get_settings
 from ....core.logging import get_logger
 from ....rpc.protocol import ErrorCode, RpcException
 from ..base import AIProvider, CompletionRequest, CompletionResult, Usage
+from ..session import cli_env, find_cli, session_dir
 
 log = get_logger(__name__)
 
@@ -44,45 +37,9 @@ DISALLOWED_TOOLS = (
 )
 
 
-def _candidate_paths() -> list[Path]:
-    """Where Claude Code installs itself, beyond PATH."""
-    home = Path.home()
-    if sys.platform == "win32":
-        appdata = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
-        local = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
-        return [
-            home / ".local" / "bin" / "claude.exe",
-            home / ".claude" / "local" / "claude.exe",
-            appdata / "npm" / "claude.cmd",
-            local / "Programs" / "claude" / "claude.exe",
-        ]
-    return [
-        home / ".local" / "bin" / "claude",
-        home / ".claude" / "local" / "claude",
-        Path("/usr/local/bin/claude"),
-        Path("/opt/homebrew/bin/claude"),
-    ]
-
-
-def find_cli() -> str | None:
-    """Locate the Claude Code executable, honouring an explicit override."""
-    override = os.environ.get("LINKEDIN_OUTREACH_CLAUDE_CLI")
-    if override and Path(override).exists():
-        return override
-
-    on_path = shutil.which("claude")
-    if on_path:
-        return on_path
-
-    for candidate in _candidate_paths():
-        if candidate.exists():
-            return str(candidate)
-    return None
-
-
-class ClaudeCodeProvider(AIProvider):
-    name = "claude-code"
-    label = "Claude Code (your subscription)"
+class ClaudeProvider(AIProvider):
+    name = "claude"
+    label = "Claude"
     default_model = ""  # empty = whatever the CLI is configured to use
     requires_api_key = False
 
@@ -90,16 +47,15 @@ class ClaudeCodeProvider(AIProvider):
         cli = find_cli()
         if not cli:
             raise RpcException(
-                "Claude Code is not installed. Install it and run `claude login`, "
-                "then reconnect from Settings.",
+                "Claude is not installed on this machine.",
                 ErrorCode.ENGINE_ERROR,
-                {"provider": self.name},
+                {"provider": self.name, "reason": "cli-missing"},
             )
         return cli
 
     def is_available(self) -> tuple[bool, str | None]:
         if not find_cli():
-            return False, "Claude Code CLI not found — install it and run `claude login`"
+            return False, "Claude is not installed on this machine"
         return True, None
 
     def _build_args(self, request: CompletionRequest, stream: bool) -> list[str]:
@@ -144,16 +100,18 @@ class ClaudeCodeProvider(AIProvider):
 
     async def _spawn(self, args: list[str], prompt: str) -> asyncio.subprocess.Process:
         cli = self._cli()
-        log.info("Running Claude Code: %s %s", cli, " ".join(args[:4]))
+        log.info("Running Claude: %s %s", cli, " ".join(args[:4]))
         return await asyncio.create_subprocess_exec(
             cli,
             *args,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            # Run from the app's data directory so the CLI never picks up project
-            # context from wherever the engine happened to be started.
-            cwd=str(get_settings().data_dir),
+            # cli_env() pins CLAUDE_CONFIG_DIR to the app's sandboxed session, and
+            # running from that directory keeps the CLI from picking up project
+            # context from wherever the engine happened to start.
+            env=cli_env(),
+            cwd=str(session_dir()),
         )
 
     @staticmethod
@@ -170,7 +128,7 @@ class ClaudeCodeProvider(AIProvider):
         # The main model is the one that produced the most output.
         if models:
             return max(models, key=lambda name: models[name].get("outputTokens", 0))
-        return "claude-code"
+        return "claude"
 
     async def complete(self, request: CompletionRequest) -> CompletionResult:
         args = self._build_args(request, stream=False)
@@ -184,13 +142,13 @@ class ClaudeCodeProvider(AIProvider):
         except TimeoutError:
             process.kill()
             raise RpcException(
-                f"Claude Code did not respond within {timeout:.0f}s", ErrorCode.TIMEOUT
+                f"Claude did not respond within {timeout:.0f}s", ErrorCode.TIMEOUT
             ) from None
 
         if process.returncode != 0:
             detail = stderr.decode("utf-8", "replace").strip() or "no error output"
             raise RpcException(
-                f"Claude Code exited with code {process.returncode}: {detail[:400]}",
+                f"Claude exited with code {process.returncode}: {detail[:400]}",
                 ErrorCode.ENGINE_ERROR,
                 {"provider": self.name},
             )
@@ -199,12 +157,12 @@ class ClaudeCodeProvider(AIProvider):
             payload = json.loads(stdout.decode("utf-8", "replace"))
         except json.JSONDecodeError as error:
             raise RpcException(
-                f"Could not parse Claude Code output: {error}", ErrorCode.ENGINE_ERROR
+                f"Could not parse Claude output: {error}", ErrorCode.ENGINE_ERROR
             ) from error
 
         if payload.get("is_error"):
             raise RpcException(
-                f"Claude Code reported an error: {payload.get('result', 'unknown')}",
+                f"Claude reported an error: {payload.get('result', 'unknown')}",
                 ErrorCode.ENGINE_ERROR,
                 {"provider": self.name, "subtype": payload.get("subtype")},
             )
@@ -250,7 +208,7 @@ class ClaudeCodeProvider(AIProvider):
 
             elif event.get("type") == "result" and event.get("is_error"):
                 raise RpcException(
-                    f"Claude Code reported an error: {event.get('result', 'unknown')}",
+                    f"Claude reported an error: {event.get('result', 'unknown')}",
                     ErrorCode.ENGINE_ERROR,
                 )
 
