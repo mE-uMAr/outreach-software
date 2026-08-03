@@ -1,0 +1,108 @@
+name: Build (Windows)
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Publish the artifacts as a GitHub release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  # 3.12 is the newest version with dependable PyInstaller support.
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  build:
+    name: Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint engine
+        run: ruff check engine
+
+      - name: Test engine
+        run: pytest -q
+
+      - name: Freeze engine (PyInstaller)
+        run: pyinstaller --clean --noconfirm --workpath .pyinstaller engine.spec
+
+      - name: Verify frozen engine responds to RPC
+        shell: pwsh
+        run: |
+          $exe = "dist/linkedin-outreach-engine/linkedin-outreach-engine.exe"
+          if (-not (Test-Path $exe)) { throw "Frozen engine not found at $exe" }
+          $request = '{"jsonrpc":"2.0","id":1,"method":"system.info"}'
+          $response = $request | & $exe 2>$null | Select-Object -First 1
+          Write-Host "engine replied: $response"
+          if ($response -notmatch '"result"') { throw "Engine did not return a JSON-RPC result" }
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build installers
+        run: npm run build:win
+        env:
+          # electron-builder rate-limits anonymously when downloading its toolchain.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: linkedin-outreach-windows-x64
+          path: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
+          draft: true
+          generate_release_notes: true

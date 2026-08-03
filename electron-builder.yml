@@ -1,0 +1,52 @@
+appId: com.hashedsystem.linkedinoutreach
+productName: LinkedIn Outreach
+copyright: Copyright © 2026 Hashed System
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+  - '!**/.git/**'
+
+# The frozen engine ships alongside the app and is resolved at runtime by
+# src/main/engine/locate.ts as resources/engine/linkedin-outreach-engine.exe.
+extraResources:
+  - from: dist/linkedin-outreach-engine
+    to: engine
+    filter:
+      - '**/*'
+
+asar: true
+asarUnpack:
+  - resources/**
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # No code signing configured yet — SmartScreen will warn on first run until a
+  # certificate is added here.
+  signAndEditExecutable: true
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: LinkedIn Outreach
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+
+portable:
+  artifactName: ${productName}-Portable-${version}-${arch}.${ext}
+
+publish: null

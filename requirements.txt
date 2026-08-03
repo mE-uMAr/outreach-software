@@ -1,0 +1,3 @@
+# Engine runtime dependencies.
+# Kept deliberately small — everything here ends up inside the frozen Windows binary.
+httpx==0.27.2

@@ -1,0 +1,33 @@
+# Node
+node_modules/
+out/
+release/
+*.log
+npm-debug.log*
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# PyInstaller (workpath is redirected so it does not collide with build/,
+# which holds electron-builder resources such as icon.ico)
+.pyinstaller/
+dist/
+
+# Local configuration and secrets
+.env
+.env.local
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Design source exported from Figma Make
+*.make

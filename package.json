@@ -1,0 +1,47 @@
+{
+  "name": "linkedin-outreach",
+  "version": "0.1.0",
+  "description": "LinkedIn Outreach — Electron desktop app with a Python engine sidecar",
+  "main": "./out/main/index.js",
+  "author": "Hashed System",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "npm run typecheck && electron-vite build",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "engine:freeze": "pyinstaller --clean --noconfirm --workpath .pyinstaller engine.spec",
+    "build:win": "npm run build && electron-builder --win --config electron-builder.yml",
+    "build:unpack": "npm run build && electron-builder --dir --config electron-builder.yml"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.452.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.5.4",
+    "electron": "^31.3.0",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.5.25",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.4"
+  }
+}

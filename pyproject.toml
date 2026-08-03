@@ -1,0 +1,27 @@
+[project]
+name = "linkedin-outreach-engine"
+version = "0.1.0"
+description = "Python sidecar engine for the LinkedIn Outreach desktop app"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["build", "dist", "node_modules", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = [
+    # Long lines in string literals and log messages are not worth wrapping.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Service imports in load_services() exist for their registration side effects.
+"engine/main.py" = ["F401"]
+"engine/__main__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["error::DeprecationWarning"]
