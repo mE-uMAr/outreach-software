@@ -23,5 +23,8 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The engine is imported from the repo root rather than installed as a package.
+pythonpath = ["."]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 filterwarnings = ["error::DeprecationWarning"]
