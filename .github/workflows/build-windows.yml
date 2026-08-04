@@ -82,8 +82,10 @@ jobs:
             '{"jsonrpc":"2.0","id":2,"method":"system.dbInfo"}'
           ) -join "`n"
 
+          # -join matters: the engine replies on several lines, and PowerShell's
+          # -match filters arrays element-wise instead of returning a boolean.
           Push-Location $env:TEMP
-          $out = $requests | & (Join-Path $env:GITHUB_WORKSPACE $exe) 2>$null
+          $out = ($requests | & (Join-Path $env:GITHUB_WORKSPACE $exe) 2>$null) -join "`n"
           Pop-Location
 
           Write-Host $out
