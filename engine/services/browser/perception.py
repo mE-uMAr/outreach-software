@@ -61,9 +61,46 @@ SCREENSHOT_QUALITY = 55
 #: all the prompt needs.
 SHOT_DIRNAME = "perception"
 
-#: Digits and long hex/ids vary between visits of the same page type; folding them
-#: away is what makes two visits to "a search results page" hash alike.
-_VARIABLE = re.compile(r"\d+|[0-9a-f]{8,}", re.IGNORECASE)
+#: Routes whose trailing segment names a specific entity. Every profile is the
+#: same *kind* of page, so they have to fold to one route — profiles are the
+#: page a campaign visits most, and a signature that varied per person would
+#: miss the plan cache on every single prospect.
+_ROUTES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^/in/[^/]+"), "/in/*"),
+    (re.compile(r"^/sales/lead/[^/]+"), "/sales/lead/*"),
+    (re.compile(r"^/sales/company/[^/]+"), "/sales/company/*"),
+    (re.compile(r"^/sales/people/[^/]+"), "/sales/people/*"),
+    (re.compile(r"^/company/[^/]+"), "/company/*"),
+    (re.compile(r"^/mynetwork/invite-connect/[^/]+"), "/mynetwork/invite-connect/*"),
+    (re.compile(r"^/messaging/thread/[^/]+"), "/messaging/thread/*"),
+)
+
+#: Anything left over: a path segment carrying digits is an id, not structure.
+_ID_SEGMENT = re.compile(r"/[^/]*\d[^/]*")
+
+
+def route_of(url: str) -> str:
+    """Reduce a URL to the *kind* of page it is.
+
+    ``/in/alex-rivera-8837a1`` and ``/in/sam-okafor-1120b9`` are both ``/in/*``.
+    What distinguishes two profiles is which buttons they show, and those are in
+    the signature separately — so a 1st-degree profile offering "Message" still
+    hashes differently from a 2nd-degree one offering "Connect".
+    """
+    path = url.split("?")[0].split("#")[0]
+    for host_prefix in ("https://", "http://"):
+        if path.startswith(host_prefix):
+            path = "/" + path[len(host_prefix) :].partition("/")[2]
+            break
+
+    # A trailing slash is not a different page.
+    path = path.rstrip("/") or "/"
+
+    for pattern, replacement in _ROUTES:
+        if pattern.match(path):
+            return pattern.sub(replacement, path, count=1)
+
+    return _ID_SEGMENT.sub("/*", path)
 
 
 def _snapshot_source() -> str:
@@ -168,7 +205,7 @@ class Perception:
         content and does not. Two loads of a search results page therefore agree,
         and a search page never collides with a profile page.
         """
-        path = _VARIABLE.sub("#", self.url.split("?")[0])
+        path = route_of(self.url)
 
         controls = sorted(
             {
