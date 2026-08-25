@@ -15,7 +15,9 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from ...core.config import get_settings
 from ...core.logging import get_logger
@@ -94,3 +96,77 @@ def clear_session() -> bool:
     shutil.rmtree(path, ignore_errors=True)
     log.info("Cleared sandboxed Claude session at %s", path)
     return True
+
+# --------------------------------------------------------------------- install
+
+#: Anthropic's own installer. Used rather than bundling Claude inside this app:
+#: Claude is proprietary software licensed under Anthropic's commercial terms,
+#: so redistributing it inside an installer we ship is not ours to do. Running
+#: their installer on the user's machine is — and it keeps Claude updating on
+#: Anthropic's schedule rather than freezing at whatever we last shipped.
+INSTALL_SCRIPT_WINDOWS = "https://claude.ai/install.ps1"
+INSTALL_SCRIPT_POSIX = "https://claude.ai/install.sh"
+
+#: Installing pulls a few hundred megabytes.
+INSTALL_TIMEOUT_SECONDS = 900
+
+
+async def install_cli(on_output: Callable[[str], None] | None = None) -> dict[str, Any]:
+    """Install Claude on this machine using Anthropic's official installer.
+
+    Streams the installer's output so the UI can show what is happening instead
+    of an indeterminate spinner over a long download.
+    """
+    import asyncio
+
+    if sys.platform == "win32":
+        command = [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            f"irm {INSTALL_SCRIPT_WINDOWS} | iex",
+        ]
+    else:
+        command = ["/bin/sh", "-c", f"curl -fsSL {INSTALL_SCRIPT_POSIX} | sh"]
+
+    log.info("Installing Claude with Anthropic's installer")
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        env={**os.environ, "NO_COLOR": "1"},
+    )
+    assert process.stdout is not None
+
+    lines: list[str] = []
+
+    async def pump() -> None:
+        async for raw in process.stdout:  # type: ignore[union-attr]
+            line = raw.decode("utf-8", "replace").strip()
+            if not line:
+                continue
+            lines.append(line)
+            log.info("claude install: %s", line)
+            if on_output:
+                on_output(line)
+
+    try:
+        await asyncio.wait_for(pump(), timeout=INSTALL_TIMEOUT_SECONDS)
+        code = await asyncio.wait_for(process.wait(), timeout=60)
+    except TimeoutError:
+        process.kill()
+        raise RuntimeError(
+            "Installing Claude timed out. Check the connection and try again."
+        ) from None
+
+    # `which` is cached by the shell, not by us, but a freshly installed CLI may
+    # not be on PATH for this already-running process — so the known install
+    # locations are re-checked directly.
+    found = find_cli()
+    if code != 0 and not found:
+        detail = " ".join(lines[-3:])[:300] or "no output"
+        raise RuntimeError(f"Installing Claude failed: {detail}")
+
+    return {"installed": bool(found), "path": found, "output": lines[-5:]}

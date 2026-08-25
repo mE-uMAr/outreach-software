@@ -18,6 +18,7 @@ import { Button } from '../components/ui/Button.js'
 import {
   getReadiness,
   installBrowserRuntime,
+  installClaudeCli,
   signInToClaude,
   signInToLinkedIn,
   cancelLinkedInSignIn,
@@ -90,12 +91,21 @@ export function OnboardingPage({ readiness, onReady }: OnboardingPageProps): JSX
   )
 
   const connectClaude = (): void => {
-    void run('ai', () =>
-      signInToClaude(
+    void run('ai', async () => {
+      // Claude is not bundled — it is Anthropic's proprietary software — so if
+      // it is missing the app installs it first rather than sending the user
+      // away to do it by hand.
+      if (!state.ai.installed) {
+        setStep('ai', { status: 'working', message: 'Installing Claude…' })
+        await installClaudeCli((line) =>
+          setStep('ai', { status: 'working', message: line })
+        )
+      }
+      await signInToClaude(
         (url) => setStep('ai', { status: 'working', message: 'Waiting for authorisation…', url }),
         (line) => setStep('ai', { status: 'working', message: line })
       )
-    )
+    })
   }
 
   const connectLinkedIn = (): void => {
@@ -157,13 +167,13 @@ export function OnboardingPage({ readiness, onReady }: OnboardingPageProps): JSX
             state={steps.ai}
             busy={active === 'ai'}
             disabled={active !== null && active !== 'ai'}
-            action="Sign in with Claude"
+            action={state.ai.installed ? 'Sign in with Claude' : 'Install & sign in'}
             onConnect={connectClaude}
             onCancel={() => cancel('ai')}
-            blocked={
-              !state.ai.installed
-                ? 'Claude is not installed on this machine. Install it, then sign in here.'
-                : undefined
+            note={
+              state.ai.installed
+                ? undefined
+                : 'Claude will be installed for you first — no separate download.'
             }
           />
 
@@ -187,10 +197,10 @@ export function OnboardingPage({ readiness, onReady }: OnboardingPageProps): JSX
           <StepCard
             id="browser"
             icon={Chrome}
-            title="Browser runtime"
-            subtitle="A private Chromium the automation drives. About 150 MB, downloaded once."
+            title="Browser"
+            subtitle="A private Chromium the automation drives, separate from the browser you use."
             connected={state.browser.ready}
-            connectedLabel="Installed"
+            connectedLabel={state.browser.bundled ? 'Included with the app' : 'Installed'}
             state={steps.browser}
             busy={active === 'browser'}
             disabled={active !== null && active !== 'browser'}
@@ -249,7 +259,8 @@ interface StepCardProps {
   disabled: boolean
   action: string
   optional?: boolean
-  blocked?: string
+  /** A neutral hint shown under the subtitle — not a blocker. */
+  note?: string
   onConnect: () => void
   onCancel: () => void
 }
@@ -267,7 +278,7 @@ function StepCard({
   disabled,
   action,
   optional,
-  blocked,
+  note,
   onConnect,
   onCancel
 }: StepCardProps): JSX.Element {
@@ -317,11 +328,8 @@ function StepCard({
             <p className="mt-0.5 text-[13px] leading-relaxed text-ink-muted">{subtitle}</p>
           )}
 
-          {blocked && !connected && (
-            <p className="mt-2.5 flex items-start gap-1.5 rounded-lg border border-warn/25 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-warn">
-              <TriangleAlert size={12} strokeWidth={2.4} className="mt-px shrink-0" />
-              {blocked}
-            </p>
+          {note && !connected && (
+            <p className="mt-2 text-[11px] leading-relaxed text-ink-subtle">{note}</p>
           )}
 
           {state.status === 'working' && (
@@ -360,7 +368,7 @@ function StepCard({
               <Button
                 variant={optional ? 'secondary' : 'primary'}
                 onClick={onConnect}
-                disabled={disabled || Boolean(blocked)}
+                disabled={disabled}
               >
                 {action}
               </Button>

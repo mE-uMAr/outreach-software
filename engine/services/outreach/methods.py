@@ -57,6 +57,9 @@ async def outreach_readiness() -> dict[str, Any]:
             "ready": bool(browser.get("installed")),
             "reason": browser.get("reason"),
             "message": browser.get("message"),
+            # True when Chromium shipped inside the installer, so onboarding can
+            # say "included" instead of offering a download nobody needs.
+            "bundled": bool(browser.get("bundled")),
         },
         # The browser can be installed after onboarding — it is only needed once a
         # campaign actually runs — so it is reported but does not gate entry.

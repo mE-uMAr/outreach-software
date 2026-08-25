@@ -6,7 +6,7 @@ import time
 import uuid
 from typing import Any
 
-from ...rpc.protocol import InvalidParams, RpcException
+from ...rpc.protocol import ErrorCode, InvalidParams, RpcException
 from ...rpc.registry import method
 from ...rpc.server import RpcContext
 from . import auth, session
@@ -153,6 +153,28 @@ def ai_cancel_login() -> dict[str, Any]:
 async def ai_logout() -> dict[str, Any]:
     """Sign out of the app's session. The machine's own Claude login is untouched."""
     return await auth.logout()
+
+
+@method("ai.installCli")
+async def ai_install_cli(ctx: RpcContext) -> dict[str, Any]:
+    """Install Claude on this machine with Anthropic's own installer.
+
+    Claude is not bundled inside this app: it is proprietary software under
+    Anthropic's commercial terms, so redistributing it is not ours to do. This
+    turns "go and install Claude yourself" into one button, and leaves Claude
+    updating on Anthropic's schedule rather than frozen at whatever we shipped.
+    """
+
+    def on_output(line: str) -> None:
+        ctx.progress(line)
+
+    try:
+        result = await session.install_cli(on_output)
+    except RuntimeError as error:
+        raise RpcException(str(error), ErrorCode.ENGINE_ERROR) from error
+
+    ctx.notify("ai.install.complete", result)
+    return result
 
 
 @method("ai.resetSession")

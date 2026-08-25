@@ -25,6 +25,17 @@ extraResources:
     filter:
       - '**/*'
 
+  # The browser the automation drives, shipped rather than downloaded on first
+  # run. It costs ~150 MB in the installer and saves every user a download that
+  # stands between them and their first campaign — and it pins the exact build
+  # the app was tested against. engine/services/browser/runtime.py looks here
+  # first, ahead of any Playwright cache on the machine.
+  - from: dist/chromium
+    to: chromium
+    filter:
+      - '**/*'
+      - '!__dirlock'
+
 asar: true
 
 win:

@@ -11,9 +11,11 @@ the database and the AI.
 
 ## What it does
 
-1. **You connect two accounts.** Claude, for the thinking. LinkedIn, in a real
-   browser window where you sign in yourself. Nothing works until both are
-   connected, so the app gates on it rather than failing on your first click.
+1. **You connect two accounts.** Claude, for the thinking — installed for you if
+   it is missing. LinkedIn, in a real browser window where you sign in yourself.
+   Nothing works until both are connected, so the app gates on it rather than
+   failing on your first click. The browser the automation drives ships inside
+   the installer, so there is nothing to download.
 2. **You paste a search.** A Sales Navigator search or a LinkedIn people search.
    The app opens it as you, reads the real result count, samples the audience,
    and Claude turns that into a plan — a name, a daily pace inside your limits,
@@ -266,22 +268,22 @@ nor Node.js**:
 
 | Dependency | How it ships |
 | --- | --- |
-| Chromium + Node runtime | inside Electron |
+| Chromium + Node runtime (the UI) | inside Electron |
+| Chromium (the automation drives it) | `resources/chromium/`, ~150 MB |
 | CPython + engine deps | frozen by PyInstaller into `resources/engine/` |
 | SQLite | `_sqlite3` + `sqlite3.dll`, bundled with the frozen engine |
 | Database file | created on first run in the user-data directory |
 | Sessions | created on first sign-in, encrypted, per install |
 
-Two things are deliberately **not** bundled:
+**Claude is the one thing not bundled**, and deliberately. It is Anthropic's
+proprietary software under their commercial terms, so redistributing it inside
+an installer we ship is not ours to do — and a signed-in session is a personal
+credential that could not travel with a build anyway. Instead the app runs
+Anthropic's own installer for the user, from onboarding, as one button: they
+never leave the app or install anything by hand.
 
-- **Claude** is Anthropic's software, so redistributing it inside this installer
-  is not ours to do, and a signed-in session is a personal credential that cannot
-  ship with a build.
-- **The automation's Chromium** is ~150 MB and would triple the installer, so the
-  app downloads it on first use and shows real progress while it does.
-
-The app detects whether each is present and says so plainly instead of failing
-obscurely.
+That also keeps Claude updating on Anthropic's release schedule rather than
+freezing at whatever version we last packaged.
 
 > No code signing certificate is configured, so SmartScreen will warn on first
 > run. Add `win.certificateFile`/`certificatePassword` in `electron-builder.yml`

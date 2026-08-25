@@ -143,6 +143,8 @@ export interface BrowserRuntimeStatus {
   reason: string | null
   message: string | null
   chromiumPath?: string | null
+  /** True when Chromium shipped inside the installer rather than being downloaded. */
+  bundled?: boolean
   profileDir: string
   open?: boolean
 }
@@ -159,7 +161,7 @@ export interface Readiness {
     error?: string
   }
   linkedin: { ready: boolean; account: LinkedInAccount | null }
-  browser: { ready: boolean; reason: string | null; message: string | null }
+  browser: { ready: boolean; reason: string | null; message: string | null; bundled?: boolean }
   blocking: string[]
 }
 

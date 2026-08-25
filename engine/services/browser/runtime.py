@@ -104,6 +104,7 @@ def runtime_status() -> dict[str, Any]:
         driver_ok = False
 
     chromium = _chromium_build()
+    shipped = bundled_root()
     return {
         "installed": bool(chromium) and driver_ok,
         "reason": None if chromium else "chromium-missing",
@@ -111,15 +112,43 @@ def runtime_status() -> dict[str, Any]:
         if chromium
         else "Chromium has not been downloaded yet. Install it from Settings.",
         "chromiumPath": str(chromium) if chromium else None,
+        # True when the browser came with the installer, so the UI can say
+        # "included" rather than offering a download nobody needs.
+        "bundled": bool(chromium and shipped and str(chromium).startswith(str(shipped))),
         "profileDir": str(profile_dir()),
     }
 
 
+def bundled_root() -> Path | None:
+    """Where Chromium lives when it shipped inside the installer.
+
+    The frozen engine sits at ``resources/engine/``, so its sibling
+    ``resources/chromium/`` is what electron-builder copied in. Checked first and
+    without any network, which is the whole point: a user who installs the app
+    has a working browser immediately rather than a 150 MB download standing
+    between them and their first campaign.
+    """
+    candidates = []
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent.parent / "chromium")
+    # Development: `npm run dev` runs from source, next to the build output.
+    candidates.append(Path(__file__).resolve().parents[3] / "dist" / "chromium")
+
+    return next((path for path in candidates if path.is_dir()), None)
+
+
 def _chromium_build() -> Path | None:
-    """Find a downloaded Chromium, honouring Playwright's own env override."""
+    """Find Chromium: bundled first, then Playwright's own cache."""
     import os
 
     roots: list[Path] = []
+
+    # Shipped with the app beats anything the user may have downloaded, so the
+    # version tested against the app is the version that runs.
+    shipped = bundled_root()
+    if shipped:
+        roots.append(shipped)
+
     override = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
     if override and override != "0":
         roots.append(Path(override))
@@ -133,15 +162,19 @@ def _chromium_build() -> Path | None:
         roots.append(home / ".cache" / "ms-playwright")
 
     executable = "chrome.exe" if sys.platform == "win32" else "chrome"
+    relatives = (
+        Path("chrome-win") / executable,
+        Path("chrome-linux") / executable,
+        Path("chrome-mac") / "Chromium.app" / "Contents" / "MacOS" / "Chromium",
+    )
+
     for root in roots:
         if not root.exists():
             continue
-        for candidate in sorted(root.glob("chromium-*"), reverse=True):
-            for relative in (
-                Path("chrome-win") / executable,
-                Path("chrome-linux") / executable,
-                Path("chrome-mac") / "Chromium.app" / "Contents" / "MacOS" / "Chromium",
-            ):
+        # A bundled root may hold the chromium-XXXX folder directly, or be that
+        # folder itself, depending on how the build copied it.
+        for candidate in [root, *sorted(root.glob("chromium*"), reverse=True)]:
+            for relative in relatives:
                 if (candidate / relative).exists():
                     return candidate / relative
     return None
@@ -230,6 +263,9 @@ class BrowserRuntime:
 
             self._context = await self._playwright.chromium.launch_persistent_context(
                 str(profile_dir()),
+                # Explicit, so the browser that ships with the app is the one
+                # that runs even when Playwright has its own copy cached.
+                executable_path=str(chromium),
                 headless=resolved_headless,
                 viewport=VIEWPORT,
                 args=list(LAUNCH_ARGS),

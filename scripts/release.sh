@@ -87,6 +87,27 @@ step "Type-checking the app"
 npm run typecheck || die "typecheck failed"
 ok "types clean"
 
+# The automation's browser ships inside the installer. Playwright's own
+# downloader is used when it works; the direct CDN fetch is the fallback for
+# networks that interfere with it.
+CHROMIUM_REVISION="1148"
+if [[ ! -f "dist/chromium/chromium-$CHROMIUM_REVISION/chrome-win/chrome.exe" ]]; then
+  step "Fetching Chromium to bundle (~150 MB)"
+  mkdir -p dist/chromium
+  if PLAYWRIGHT_BROWSERS_PATH="$ROOT/dist/chromium" "$PY" -m playwright install chromium >/dev/null 2>&1      && [[ -n "$(find dist/chromium -name 'chrome.exe' -print -quit 2>/dev/null)" ]]; then
+    ok "Chromium fetched"
+  else
+    warn "Playwright's downloader failed; fetching from the CDN directly"
+    CDN="https://cdn.playwright.dev/dbazure/download/playwright/builds/chromium/$CHROMIUM_REVISION/chromium-win64.zip"
+    curl -sL --retry 10 --retry-all-errors --max-time 2400 -o dist/chromium/chromium.zip "$CDN"       || die "could not download Chromium"
+    ./node_modules/7zip-bin/win/x64/7za.exe x -bd -y dist/chromium/chromium.zip       -o"dist/chromium/chromium-$CHROMIUM_REVISION" >/dev/null || die "could not extract Chromium"
+    rm -f dist/chromium/chromium.zip
+    ok "Chromium fetched from the CDN"
+  fi
+else
+  ok "Chromium already staged for bundling"
+fi
+
 step "Freezing the engine"
 rm -rf dist/linkedin-outreach-engine
 "$PY" -m PyInstaller --clean --noconfirm --workpath .pyinstaller engine.spec \

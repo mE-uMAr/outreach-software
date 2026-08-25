@@ -69,6 +69,28 @@ export async function signInToClaude(
   )
 }
 
+/**
+ * Install Claude with Anthropic's own installer, driven from the app.
+ *
+ * Claude is not bundled inside the installer — it is proprietary software under
+ * Anthropic's commercial terms — so this turns "go and install it yourself"
+ * into one button.
+ */
+export async function installClaudeCli(
+  onProgress?: (line: string) => void
+): Promise<{ installed: boolean; path: string | null }> {
+  return callWithEvents(
+    'ai.installCli',
+    undefined,
+    'engine.progress',
+    (event) => {
+      const params = event.params as { message?: string }
+      if (params?.message) onProgress?.(params.message)
+    },
+    16 * 60 * 1000
+  )
+}
+
 export async function cancelClaudeSignIn(): Promise<void> {
   await call('ai.cancelLogin')
 }
