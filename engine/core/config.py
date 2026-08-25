@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 APP_NAME = "linkedin-outreach"
-ENGINE_VERSION = "0.1.0"
+ENGINE_VERSION = "0.1.1"
 
 
 def user_data_dir() -> Path:
