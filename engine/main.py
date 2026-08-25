@@ -30,6 +30,8 @@ def load_services() -> None:
     """Import every service module so its @method handlers register."""
     from engine.services import system  # noqa: F401
     from engine.services.ai import methods as ai_methods  # noqa: F401
+    from engine.services.browser import methods as browser_methods  # noqa: F401
+    from engine.services.linkedin import methods as linkedin_methods  # noqa: F401
     from engine.services.outreach import methods as outreach_methods  # noqa: F401
 
 

@@ -1,3 +1,8 @@
 # Engine runtime dependencies.
 # Kept deliberately small — everything here ends up inside the frozen Windows binary.
 httpx==0.27.2
+
+# Browser automation. The package and its node driver are frozen into the build;
+# the Chromium build itself is downloaded on first use (see browser.install),
+# because it is ~150 MB and would triple the installer.
+playwright==1.49.1

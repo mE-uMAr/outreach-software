@@ -10,6 +10,7 @@ from __future__ import annotations
 import abc
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal
 
 Role = Literal["system", "user", "assistant"]
@@ -44,6 +45,14 @@ class CompletionRequest:
     temperature: float = 0.7
     max_tokens: int = 1024
     metadata: dict[str, Any] = field(default_factory=dict)
+    #: Image files to show alongside the prompt. Used by the browser agent when
+    #: the accessibility tree alone was not enough to decide a step.
+    images: list[Path] = field(default_factory=list)
+    #: Ask for JSON only. Providers append the instruction their backend needs;
+    #: callers still have to parse and validate what comes back.
+    json_only: bool = False
+    #: What this call is for, recorded against its cost in `ai_usage`.
+    purpose: str = "general"
 
     def chat_messages(self) -> list[dict[str, str]]:
         """Messages without the system prompt, which providers take separately."""
@@ -60,12 +69,19 @@ class CompletionRequest:
 class Usage:
     input_tokens: int = 0
     output_tokens: int = 0
+    #: Tokens served from the prompt cache, which bill at a fraction of the rest.
+    cache_read_tokens: int = 0
+    #: What the provider itself reported this call cost, in USD. Preferred over
+    #: any local estimate — it already accounts for caching and model routing.
+    cost_usd: float = 0.0
 
-    def to_dict(self) -> dict[str, int]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "inputTokens": self.input_tokens,
             "outputTokens": self.output_tokens,
+            "cacheReadTokens": self.cache_read_tokens,
             "totalTokens": self.input_tokens + self.output_tokens,
+            "costUsd": round(self.cost_usd, 6),
         }
 
 
@@ -76,6 +92,7 @@ class CompletionResult:
     provider: str
     usage: Usage = field(default_factory=Usage)
     stop_reason: str | None = None
+    duration_ms: int = 0
     raw: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -85,6 +102,7 @@ class CompletionResult:
             "provider": self.provider,
             "usage": self.usage.to_dict(),
             "stopReason": self.stop_reason,
+            "durationMs": self.duration_ms,
         }
 
 

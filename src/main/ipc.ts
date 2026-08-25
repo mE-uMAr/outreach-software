@@ -18,7 +18,7 @@ export type EngineCallResult<T = unknown> =
   | { ok: false; error: { code: number; message: string; data?: unknown } }
 
 /** Methods the renderer is allowed to invoke, by namespace prefix. */
-const ALLOWED_NAMESPACES = ['system.', 'ai.', 'outreach.']
+const ALLOWED_NAMESPACES = ['system.', 'ai.', 'outreach.', 'linkedin.', 'browser.']
 
 function isAllowed(method: string): boolean {
   return ALLOWED_NAMESPACES.some((prefix) => method.startsWith(prefix))

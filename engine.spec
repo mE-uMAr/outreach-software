@@ -6,7 +6,7 @@ build (rather than --onefile) starts faster and avoids the temp-extraction step
 that Windows AV products tend to flag.
 """
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 hidden_imports = [
     # Service modules are imported dynamically by load_services(); make sure the
@@ -28,13 +28,30 @@ hidden_imports = [
     "idna",
     "sniffio",
     "anyio",
+    # Playwright drives the browser; greenlet and pyee are pulled in lazily by
+    # its sync/event plumbing and are missed by static analysis.
+    "playwright",
+    "playwright.async_api",
+    "greenlet",
+    "pyee",
 ]
+
+# Playwright ships a node driver and a package manifest as data, not as modules.
+# Without them the frozen engine imports fine and then fails the moment it tries
+# to launch a browser.
+playwright_datas, playwright_binaries, playwright_hidden = collect_all("playwright")
+hidden_imports += playwright_hidden
 
 analysis = Analysis(
     ["engine/main.py"],
     pathex=["."],
-    binaries=[],
-    datas=[],
+    binaries=playwright_binaries,
+    # snapshot.js is read at runtime to build the accessibility snapshot, so it
+    # has to travel with the binary rather than being compiled into it.
+    datas=[
+        *playwright_datas,
+        ("engine/services/browser/snapshot.js", "engine/services/browser"),
+    ],
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
