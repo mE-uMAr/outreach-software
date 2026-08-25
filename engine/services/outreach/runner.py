@@ -171,7 +171,7 @@ class CampaignRunner:
         state.task = asyncio.create_task(self._run(campaign_id), name=f"campaign:{campaign_id}")
         return state.to_dict()
 
-    async def stop(self, campaign_id: str) -> dict[str, Any]:
+    async def stop(self, campaign_id: str, status: str = "paused") -> dict[str, Any]:
         """Stop a run. In-flight work is allowed to finish its current step."""
         state = self._states.get(campaign_id)
         if state and state.task and not state.task.done():
@@ -181,11 +181,11 @@ class CampaignRunner:
             with contextlib.suppress(asyncio.CancelledError):
                 await state.task
 
-        store.set_status(campaign_id, "paused")
+        store.set_status(campaign_id, status)
         if state:
-            state.status = "paused"
-        self._emit(campaign_id, "stopped", message="Campaign paused")
-        return {"campaignId": campaign_id, "status": "paused"}
+            state.status = status
+        self._emit(campaign_id, "stopped", message=f"Campaign {status}")
+        return {"campaignId": campaign_id, "status": status}
 
     async def stop_all(self) -> None:
         for campaign_id in list(self._states):
@@ -216,11 +216,19 @@ class CampaignRunner:
                     await asyncio.sleep(SCHEDULE_POLL_SECONDS)
                     continue
 
-                ceiling = min(
-                    int(window.get("dailyLimit") or 0) or campaign["dailyTarget"],
-                    campaign["dailyTarget"] or int(window.get("dailyLimit") or 0),
-                    settings_store.daily_limit_for(settings),
-                )
+                # Three limits apply and the tightest of them wins: what today's
+                # schedule row allows, what this campaign was paced for, and the
+                # account-wide ceiling. A zero means "not set", not "none".
+                candidates = [
+                    value
+                    for value in (
+                        int(window.get("dailyLimit") or 0),
+                        int(campaign["dailyTarget"] or 0),
+                        settings_store.daily_limit_for(settings),
+                    )
+                    if value > 0
+                ]
+                ceiling = min(candidates) if candidates else 0
                 state.daily_target = ceiling
                 state.sent_today = _sent_today(campaign_id)
 

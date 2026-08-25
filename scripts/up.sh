@@ -69,10 +69,21 @@ fi
 # Electron ships a prebuilt binary downloaded by its postinstall script. A
 # blocked or interrupted download leaves the package present but unusable.
 ELECTRON_BIN="node_modules/electron/dist/electron"
-[ "$(uname -s)" = "Darwin" ] && ELECTRON_BIN="node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+case "$(uname -s)" in
+  Darwin)      ELECTRON_BIN="node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" ;;
+  MINGW*|MSYS*|CYGWIN*) ELECTRON_BIN="node_modules/electron/dist/electron.exe" ;;
+esac
+
 if [ ! -e "$ELECTRON_BIN" ]; then
-  step "Downloading the Electron binary"
-  node node_modules/electron/install.js || die "Electron download failed — re-run once you have network access to github.com"
+  step "Downloading the Electron binary (~110 MB)"
+  # An interrupted download leaves a half-extracted dist/ that the installer then
+  # treats as complete, so it is cleared before each attempt.
+  for attempt in 1 2 3; do
+    rm -rf node_modules/electron/dist
+    if node node_modules/electron/install.js; then break; fi
+    warn "attempt $attempt failed; retrying"
+  done
+  [ -e "$ELECTRON_BIN" ] || die "Electron download failed — re-run once github.com is reachable"
   ok "Electron binary ready"
 fi
 
@@ -87,15 +98,15 @@ fi
 VENV_PY=".venv/bin/python"
 [ -x "$VENV_PY" ] || VENV_PY=".venv/Scripts/python.exe"   # Git Bash on Windows
 
-if ! "$VENV_PY" -c 'import httpx' >/dev/null 2>&1; then
+if ! "$VENV_PY" -c 'import httpx, playwright' >/dev/null 2>&1; then
   step "Installing engine dependencies"
   PIP_LOG="$(mktemp)"
   "$VENV_PY" -m pip install --quiet --upgrade pip >>"$PIP_LOG" 2>&1 || true
   if "$VENV_PY" -m pip install --quiet -r requirements-dev.txt >>"$PIP_LOG" 2>&1; then
     ok "engine dependencies installed"
   else
-    warn "pip install failed — the engine still runs on the standard library,"
-    warn "but the Anthropic and OpenAI providers stay unavailable."
+    warn "pip install failed — the engine still boots and the UI still opens,"
+    warn "but browser automation stays unavailable until Playwright installs."
     warn "last error: $(grep -m1 '^ERROR' "$PIP_LOG" || tail -n1 "$PIP_LOG")"
     warn "full log: $PIP_LOG"
   fi
@@ -111,6 +122,27 @@ if printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"system.info"}' \
   ok "engine answered system.info"
 else
   die "engine did not respond — run: $VENV_PY engine/main.py"
+fi
+
+# Chromium is what the automation drives. The app can also download it from
+# Settings on first use, so a failure here is a warning, not a stop.
+if "$VENV_PY" -c 'import playwright' >/dev/null 2>&1; then
+  if "$VENV_PY" -c '
+import sys
+from pathlib import Path
+sys.path.insert(0, ".")
+from engine.services.browser.runtime import runtime_status
+sys.exit(0 if runtime_status()["installed"] else 1)
+' >/dev/null 2>&1; then
+    ok "Chromium ready for automation"
+  else
+    step "Downloading Chromium for the automation (~150 MB)"
+    if "$VENV_PY" -m playwright install chromium >/dev/null 2>&1; then
+      ok "Chromium installed"
+    else
+      warn "Chromium download failed — install it from Settings inside the app"
+    fi
+  fi
 fi
 
 if [ "$SETUP_ONLY" -eq 1 ]; then

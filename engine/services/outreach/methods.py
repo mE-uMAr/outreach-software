@@ -177,8 +177,8 @@ async def outreach_set_campaign_status(
             await runner.start(id)
             return store.get(id)
         if status in ("paused", "completed"):
-            await runner.stop(id)
-            return store.set_status(id, status)
+            await runner.stop(id, status)
+            return store.get(id)
         return store.set_status(id, status)
     except ValueError as error:
         raise InvalidParams(str(error)) from error
