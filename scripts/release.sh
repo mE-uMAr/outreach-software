@@ -16,6 +16,9 @@
 # Requirements: Node 20+, Python 3.11+, and the GitHub CLI (`gh auth login`).
 
 set -euo pipefail
+# Without this, `./scripts/release.sh | tail` reports tail's exit status and a
+# failed build looks like a successful one.
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -107,6 +110,25 @@ SMOKE_OUT="$(cd "$(dirname "$ENGINE_EXE")" && printf '%s\n' \
 grep -q '"result"' <<<"$SMOKE_OUT" || die "the frozen engine returned no result"
 grep -q '"schemaVersion"' <<<"$SMOKE_OUT" || die "the frozen engine could not open its database"
 ok "frozen engine answers over stdio"
+
+# electron-builder downloads a code-signing bundle containing macOS symlinks.
+# Windows refuses to create those without elevation, which fails the whole
+# extraction — so the bundle is unpacked here without them. rcedit, the part
+# actually needed on Windows, is kept.
+WINCODESIGN_VERSION="2.6.0"
+WINCODESIGN_CACHE="${LOCALAPPDATA:-$HOME/AppData/Local}/electron-builder/Cache/winCodeSign"
+WINCODESIGN_DIR="$WINCODESIGN_CACHE/winCodeSign-$WINCODESIGN_VERSION"
+
+if [[ ! -f "$WINCODESIGN_DIR/rcedit-x64.exe" ]]; then
+  step "Preparing the Windows signing tools"
+  ARCHIVE="$(find "$WINCODESIGN_CACHE" -maxdepth 1 -name '*.7z' 2>/dev/null | head -1 || true)"
+  if [[ -n "$ARCHIVE" ]]; then
+    rm -rf "$WINCODESIGN_DIR"
+    ./node_modules/7zip-bin/win/x64/7za.exe x -bd -y "$ARCHIVE" "-o$WINCODESIGN_DIR" '-xr!darwin' >/dev/null       && ok "signing tools ready (macOS files skipped)"       || warn "could not pre-extract the signing tools; electron-builder will retry"
+  else
+    warn "no cached signing bundle yet — the first build downloads it"
+  fi
+fi
 
 step "Building the installers"
 npx electron-vite build || die "renderer build failed"

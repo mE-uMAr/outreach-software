@@ -28,6 +28,9 @@ extraResources:
 asar: true
 
 win:
+  # Generated from build/logo.svg by scripts/make_icon.py, at every size Windows
+  # asks for. Without it the app ships with the default Electron icon.
+  icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]
@@ -39,6 +42,9 @@ win:
   signAndEditExecutable: true
 
 nsis:
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true

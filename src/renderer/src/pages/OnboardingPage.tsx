@@ -7,13 +7,13 @@ import {
   ExternalLink,
   Linkedin,
   Loader2,
-  LockKeyhole,
   RefreshCw,
   ShieldCheck,
   Sparkles,
   TriangleAlert,
   type LucideIcon
 } from 'lucide-react'
+import { Logo } from '../components/layout/Logo.js'
 import { Button } from '../components/ui/Button.js'
 import {
   getReadiness,
@@ -121,9 +121,7 @@ export function OnboardingPage({ readiness, onReady }: OnboardingPageProps): JSX
     <div className="flex min-h-screen flex-col items-center bg-canvas px-6 py-12">
       <div className="w-full max-w-[640px]">
         <header className="mb-8 text-center">
-          <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500 shadow-lg shadow-brand-500/25">
-            <LockKeyhole size={26} strokeWidth={2.2} className="text-white" />
-          </span>
+          <Logo size={56} className="mx-auto mb-4 rounded-2xl shadow-lg shadow-brand-500/25" />
           <h1 className="text-[26px] font-extrabold tracking-[-0.02em] text-ink">
             Connect your accounts
           </h1>

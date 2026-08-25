@@ -1,3 +1,5 @@
+<img src="build/logo.svg" width="72" alt="">
+
 # LinkedIn Outreach
 
 A Windows desktop app that runs LinkedIn outreach campaigns on your own account,

@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { LayoutDashboard, Settings } from 'lucide-react'
+import { Logo } from './Logo.js'
 import type { LinkedInAccount } from '../../data/types.js'
 
 export type Route = 'campaigns' | 'settings'
@@ -30,9 +31,7 @@ export function TopNav({ route, onNavigate, account }: TopNavProps): JSX.Element
   return (
     <header className="sticky top-0 z-[200] flex h-[54px] shrink-0 items-center justify-between border-b border-line bg-white px-8 shadow-topbar">
       <div className="flex items-center gap-2.5">
-        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[7px] bg-gradient-to-br from-brand-500 to-brand-700 text-[13px] font-extrabold text-white">
-          Li
-        </span>
+        <Logo size={30} className="shrink-0 rounded-[7px]" />
         <span className="text-sm font-bold text-ink">LinkedIn Outreach</span>
       </div>
 

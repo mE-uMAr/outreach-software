@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="LinkedIn Outreach">
+  <title>LinkedIn Outreach</title>
+
+  <!--
+    The mark: a send arrow leaving a small network.
+
+    Deliberately *not* LinkedIn's "in" glyph — that is a registered trademark and
+    this app is distributed. What is borrowed is the professional-network blue and
+    the squircle silhouette the category has settled on, which reads as "LinkedIn
+    tool" without pretending to be LinkedIn.
+
+    Two ideas, one shape: the nodes and edges say network, the plane says outreach.
+  -->
+
+  <defs>
+    <linearGradient id="oa-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="url(#oa-bg)"/>
+
+  <!-- The network being reached: two nodes and the edge between them. -->
+  <g stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round">
+    <path d="M15 44 L25 39"/>
+  </g>
+  <g fill="#FFFFFF" fill-opacity="0.55">
+    <circle cx="14" cy="45" r="3.2"/>
+    <circle cx="26" cy="38.5" r="2.4"/>
+  </g>
+
+  <!-- The outreach itself. The darker lower wing is the paper fold. -->
+  <path d="M50 14 L28.5 46 L24 30.5 Z" fill="#FFFFFF" fill-opacity="0.78"/>
+  <path d="M50 14 L24 30.5 L10.5 26 Z" fill="#FFFFFF"/>
+</svg>

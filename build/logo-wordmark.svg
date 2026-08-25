@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" width="260" height="64" role="img" aria-label="LinkedIn Outreach">
+  <title>LinkedIn Outreach</title>
+
+  <!-- Horizontal lockup: the mark plus the name, for READMEs and release pages. -->
+
+  <defs>
+    <linearGradient id="oa-wm-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+
+  <g>
+    <rect width="64" height="64" rx="14" fill="url(#oa-wm-bg)"/>
+
+    <g stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round">
+      <path d="M15 44 L25 39"/>
+    </g>
+    <g fill="#FFFFFF" fill-opacity="0.55">
+      <circle cx="14" cy="45" r="3.2"/>
+      <circle cx="26" cy="38.5" r="2.4"/>
+    </g>
+
+    <path d="M50 14 L28.5 46 L24 30.5 Z" fill="#FFFFFF" fill-opacity="0.78"/>
+    <path d="M50 14 L24 30.5 L10.5 26 Z" fill="#FFFFFF"/>
+  </g>
+
+  <!--
+    System font stack rather than an embedded face: the wordmark renders in
+    GitHub's own UI and in the app, and shipping a font file for two words is
+    weight nobody needs.
+  -->
+  <text x="80" y="30" font-family="Segoe UI, -apple-system, system-ui, Helvetica, Arial, sans-serif"
+        font-size="19" font-weight="700" fill="#0F172A" letter-spacing="-0.4">LinkedIn</text>
+  <text x="80" y="50" font-family="Segoe UI, -apple-system, system-ui, Helvetica, Arial, sans-serif"
+        font-size="19" font-weight="700" fill="#2563EB" letter-spacing="-0.4">Outreach</text>
+</svg>
