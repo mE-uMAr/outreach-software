@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import {
   Activity,
+  Bot,
   Calendar,
   Clock,
   Gauge,
@@ -26,6 +27,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 's-followup', label: 'Follow-up Rules', icon: Clock },
   { id: 's-templates', label: 'Message Templates', icon: MessageSquare },
   { id: 's-sheets', label: 'Sheets Integration', icon: Sheet },
+  { id: 's-browser', label: 'Browser Automation', icon: Bot },
   { id: 's-ai', label: 'AI Connection', icon: Plug },
   { id: 's-usage', label: 'AI Usage & Cost', icon: Gauge }
 ]

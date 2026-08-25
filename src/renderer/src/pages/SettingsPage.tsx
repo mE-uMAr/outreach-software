@@ -7,6 +7,7 @@ import { FollowUpRulesCard } from '../components/settings/FollowUpRulesCard.js'
 import { MessageTemplatesCard } from '../components/settings/MessageTemplatesCard.js'
 import { SheetsIntegrationCard } from '../components/settings/SheetsIntegrationCard.js'
 import { AiConnectionCard } from '../components/settings/AiConnectionCard.js'
+import { BrowserAutomationCard } from '../components/settings/BrowserAutomationCard.js'
 import { LinkedInAccountCard } from '../components/settings/LinkedInAccountCard.js'
 import { UsageCard } from '../components/settings/UsageCard.js'
 import { SaveBar } from '../components/settings/SaveBar.js'
@@ -142,6 +143,10 @@ export function SettingsPage({
               onChange={(templates) => patch({ templates })}
             />
             <SheetsIntegrationCard sheets={draft.sheets} />
+            <BrowserAutomationCard
+              settings={draft.browser}
+              onChange={(browser) => patch({ browser })}
+            />
             <AiConnectionCard connection={draft.ai} onChange={(ai) => patch({ ai })} />
             <UsageCard />
           </div>
