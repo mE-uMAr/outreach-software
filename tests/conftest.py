@@ -22,14 +22,13 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     home = tmp_path / "data"
     home.mkdir(parents=True, exist_ok=True)
 
-    # user_data_dir() reads these, and which one depends on the platform.
+    # user_data_dir() reads these; which one it reads depends on the platform.
     monkeypatch.setenv("APPDATA", str(home))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(home))
-    monkeypatch.setattr(config, "_settings", None, raising=False)
-    monkeypatch.setattr(config.Settings, "data_dir", home, raising=False)
 
-    settings = config.Settings(data_dir=home)
-    monkeypatch.setattr(config, "_settings", settings, raising=False)
+    # Settings is a slots dataclass, so the cached instance is replaced outright
+    # rather than patched — and the cache is what every caller resolves through.
+    monkeypatch.setattr(config, "_settings", config.Settings(data_dir=home), raising=False)
     monkeypatch.setattr(db, "_initialised", False, raising=False)
 
     db.initialize()

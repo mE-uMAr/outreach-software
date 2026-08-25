@@ -7,6 +7,7 @@ import { Pagination } from '../components/campaigns/Pagination.js'
 import { StatsGrid } from '../components/campaigns/StatsGrid.js'
 import { TableToolbar, type StatusFilter } from '../components/campaigns/TableToolbar.js'
 import { CreateCampaignModal } from '../components/campaigns/CreateCampaignModal.js'
+import { CampaignDetailModal } from '../components/campaigns/CampaignDetailModal.js'
 import {
   createCampaign,
   deleteCampaign,
@@ -42,6 +43,7 @@ export function CampaignsPage(): JSX.Element {
   const [page, setPage] = useState(1)
   const [reloadToken, setReloadToken] = useState(0)
   const [creating, setCreating] = useState(false)
+  const [viewing, setViewing] = useState<Campaign | null>(null)
 
   useEffect(() => {
     void getCampaignStats()
@@ -70,6 +72,14 @@ export function CampaignsPage(): JSX.Element {
       cancelled = true
     }
   }, [search, status, sort, page, reloadToken])
+
+  // The detail modal holds its own copy of a campaign, which goes stale the
+  // moment the list reloads underneath it.
+  useEffect(() => {
+    setViewing((current) =>
+      current ? (result.items.find((item) => item.id === current.id) ?? current) : null
+    )
+  }, [result.items])
 
   // Filtering can shrink the result set below the current page.
   useEffect(() => {
@@ -132,12 +142,8 @@ export function CampaignsPage(): JSX.Element {
 
   const handlers = useMemo(
     () => ({
-      onView: (campaign: Campaign) => {
-        if (campaign.searchUrl) window.open(campaign.searchUrl, '_blank', 'noreferrer')
-      },
-      onEdit: (campaign: Campaign) => {
-        if (campaign.searchUrl) window.open(campaign.searchUrl, '_blank', 'noreferrer')
-      },
+      onView: (campaign: Campaign) => setViewing(campaign),
+      onEdit: (campaign: Campaign) => setViewing(campaign),
       onDuplicate: (campaign: Campaign) => void guard(() => duplicateCampaign(campaign.id)),
       onToggleRun: (campaign: Campaign) =>
         void guard(() =>
@@ -227,6 +233,12 @@ export function CampaignsPage(): JSX.Element {
         open={creating}
         onClose={() => setCreating(false)}
         onCreated={(analysis, name) => void onCampaignCreated(analysis, name)}
+      />
+
+      <CampaignDetailModal
+        campaign={viewing}
+        onClose={() => setViewing(null)}
+        onChanged={reload}
       />
     </div>
   )

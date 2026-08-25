@@ -16,6 +16,7 @@ an error that should end the run.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -177,8 +178,8 @@ async def settle(page: Page, timeout_ms: int = 8_000) -> None:
     ``networkidle`` never fires on LinkedIn — there is always a poll in flight —
     so this waits for the DOM instead and gives late-rendering content a beat.
     """
-    try:
+    # A page that never settles is still worth acting on — the snapshot taken
+    # next will say what is actually there.
+    with contextlib.suppress(Exception):
         await page.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
-    except Exception:
-        pass
     await asyncio.sleep(0.6)

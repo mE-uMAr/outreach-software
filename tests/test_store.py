@@ -8,9 +8,8 @@ from pathlib import Path
 import pytest
 
 from engine.core import db, secrets
-from engine.store import accounts, agent_memory
+from engine.store import accounts, agent_memory, settings_store
 from engine.store import campaigns as store
-from engine.store import settings_store
 
 
 def test_migrations_reach_the_expected_version(data_dir: Path) -> None:

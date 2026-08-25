@@ -80,9 +80,9 @@ async def personalise(
 
     # A template that is already complete after substitution needs no model call.
     # On a 500-prospect campaign that is 500 requests not made.
-    if not _PLACEHOLDER.search(body) or not _unresolved(filled):
-        if len(filled) <= limit:
-            return filled
+    already_complete = not _PLACEHOLDER.search(body) or not _unresolved(filled)
+    if already_complete and len(filled) <= limit:
+        return filled
 
     prompt = f"""Operator's template:
 "{body}"

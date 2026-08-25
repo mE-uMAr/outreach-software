@@ -133,7 +133,8 @@ def _mac(key: bytes, nonce: bytes, ciphertext: bytes) -> bytes:
 def _keyfile_encrypt(payload: bytes) -> bytes:
     key = _load_or_create_key()
     nonce = _secrets.token_bytes(_NONCE_SIZE)
-    ciphertext = bytes(a ^ b for a, b in zip(payload, _keystream(key, nonce, len(payload))))
+    keystream = _keystream(key, nonce, len(payload))
+    ciphertext = bytes(a ^ b for a, b in zip(payload, keystream, strict=True))
     return nonce + _mac(key, nonce, ciphertext) + ciphertext
 
 
@@ -149,7 +150,8 @@ def _keyfile_decrypt(blob: bytes) -> bytes:
     if not hmac.compare_digest(tag, _mac(key, nonce, ciphertext)):
         raise SecretError("Stored credential failed its integrity check")
 
-    return bytes(a ^ b for a, b in zip(ciphertext, _keystream(key, nonce, len(ciphertext))))
+    keystream = _keystream(key, nonce, len(ciphertext))
+    return bytes(a ^ b for a, b in zip(ciphertext, keystream, strict=True))
 
 
 # --------------------------------------------------------------------- public

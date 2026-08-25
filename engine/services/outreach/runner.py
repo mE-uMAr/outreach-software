@@ -18,6 +18,7 @@ time, and the plan cache has already learned them.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import random
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
@@ -176,10 +177,9 @@ class CampaignRunner:
         if state and state.task and not state.task.done():
             state.status = "stopping"
             state.task.cancel()
-            try:
+            # Awaiting our own cancellation is how we know the step finished.
+            with contextlib.suppress(asyncio.CancelledError):
                 await state.task
-            except asyncio.CancelledError:
-                pass
 
         store.set_status(campaign_id, "paused")
         if state:

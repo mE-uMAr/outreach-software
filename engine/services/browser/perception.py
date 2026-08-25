@@ -23,7 +23,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -36,7 +36,7 @@ if TYPE_CHECKING:  # pragma: no cover
 log = get_logger(__name__)
 
 
-class Tier(str, Enum):
+class Tier(StrEnum):
     """How much the model is shown, cheapest first.
 
     The agent starts at ``ARIA`` and only escalates when a step actually fails,
