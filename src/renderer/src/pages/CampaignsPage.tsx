@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, TriangleAlert } from 'lucide-react'
 import { Button } from '../components/ui/Button.js'
 import { Card } from '../components/ui/Card.js'
 import { CampaignsTable } from '../components/campaigns/CampaignsTable.js'
@@ -10,7 +10,9 @@ import { CreateCampaignModal } from '../components/campaigns/CreateCampaignModal
 import {
   createCampaign,
   deleteCampaign,
+  duplicateCampaign,
   getCampaignStats,
+  importProspects,
   listCampaigns,
   setCampaignStatus
 } from '../data/api.js'
@@ -33,6 +35,7 @@ export function CampaignsPage(): JSX.Element {
     pageSize: PAGE_SIZE
   })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [sort, setSort] = useState<CampaignSort>('recent')
@@ -41,18 +44,27 @@ export function CampaignsPage(): JSX.Element {
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
-    void getCampaignStats().then(setStats)
+    void getCampaignStats()
+      .then(setStats)
+      .catch((caught: Error) => setError(caught.message))
   }, [reloadToken])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
 
-    void listCampaigns({ search, status, sort, page, pageSize: PAGE_SIZE }).then((response) => {
-      if (cancelled) return
-      setResult(response)
-      setLoading(false)
-    })
+    void listCampaigns({ search, status, sort, page, pageSize: PAGE_SIZE })
+      .then((response) => {
+        if (cancelled) return
+        setResult(response)
+        setError(null)
+      })
+      .catch((caught: Error) => {
+        if (!cancelled) setError(caught.message)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
     return () => {
       cancelled = true
@@ -69,15 +81,17 @@ export function CampaignsPage(): JSX.Element {
 
   const onCampaignCreated = useCallback(
     async (analysis: CampaignAnalysis, name: string) => {
-      await createCampaign({
+      const campaign = await createCampaign({
         name,
-        source: 'sales-navigator',
+        source: analysis.source,
+        searchUrl: analysis.searchUrl,
         targetProspects: analysis.targetProspects,
         dailyTarget: analysis.dailyConnections,
         autoPlanned: true,
-        startDate: null,
-        estimatedEndDate: analysis.expectedCompletion
+        estimatedEndDate: analysis.expectedCompletion,
+        analysis
       })
+
       setCreating(false)
       // A new campaign is the newest one, so show it at the top of page one.
       setSort('recent')
@@ -85,6 +99,14 @@ export function CampaignsPage(): JSX.Element {
       setSearch('')
       setPage(1)
       reload()
+
+      // Queueing the prospects walks the search in a real browser and takes a
+      // while, so the campaign is already visible before this starts.
+      void importProspects(campaign.id, analysis.searchUrl)
+        .then(reload)
+        .catch((caught: Error) =>
+          setError(`Campaign created, but importing prospects failed: ${caught.message}`)
+        )
     },
     [reload]
   )
@@ -96,21 +118,34 @@ export function CampaignsPage(): JSX.Element {
     }
   }, [])
 
+  const guard = useCallback(
+    async (work: () => Promise<unknown>) => {
+      try {
+        await work()
+        reload()
+      } catch (caught) {
+        setError((caught as Error).message)
+      }
+    },
+    [reload]
+  )
+
   const handlers = useMemo(
     () => ({
-      onView: (campaign: Campaign) => console.info('view campaign', campaign.id),
-      onEdit: (campaign: Campaign) => console.info('edit campaign', campaign.id),
-      onDuplicate: (campaign: Campaign) => console.info('duplicate campaign', campaign.id),
-      onToggleRun: async (campaign: Campaign) => {
-        await setCampaignStatus(campaign.id, campaign.status === 'running' ? 'paused' : 'running')
-        reload()
+      onView: (campaign: Campaign) => {
+        if (campaign.searchUrl) window.open(campaign.searchUrl, '_blank', 'noreferrer')
       },
-      onDelete: async (campaign: Campaign) => {
-        await deleteCampaign(campaign.id)
-        reload()
-      }
+      onEdit: (campaign: Campaign) => {
+        if (campaign.searchUrl) window.open(campaign.searchUrl, '_blank', 'noreferrer')
+      },
+      onDuplicate: (campaign: Campaign) => void guard(() => duplicateCampaign(campaign.id)),
+      onToggleRun: (campaign: Campaign) =>
+        void guard(() =>
+          setCampaignStatus(campaign.id, campaign.status === 'running' ? 'paused' : 'running')
+        ),
+      onDelete: (campaign: Campaign) => void guard(() => deleteCampaign(campaign.id))
     }),
-    [reload]
+    [guard]
   )
 
   return (
@@ -133,6 +168,21 @@ export function CampaignsPage(): JSX.Element {
           New Campaign
         </Button>
       </div>
+
+      {error && (
+        <div className="mt-5 flex items-start justify-between gap-4 rounded-xl border border-danger/20 bg-red-50 px-4 py-3">
+          <p className="flex items-start gap-2 text-[13px] leading-relaxed text-danger">
+            <TriangleAlert size={15} strokeWidth={2.2} className="mt-px shrink-0" />
+            {error}
+          </p>
+          <button
+            onClick={() => setError(null)}
+            className="shrink-0 text-[12px] font-semibold text-danger underline underline-offset-2"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="mt-7">
         <StatsGrid stats={stats} />
@@ -161,8 +211,8 @@ export function CampaignsPage(): JSX.Element {
           onView={handlers.onView}
           onEdit={handlers.onEdit}
           onDuplicate={handlers.onDuplicate}
-          onToggleRun={(campaign) => void handlers.onToggleRun(campaign)}
-          onDelete={(campaign) => void handlers.onDelete(campaign)}
+          onToggleRun={handlers.onToggleRun}
+          onDelete={handlers.onDelete}
         />
 
         <Pagination

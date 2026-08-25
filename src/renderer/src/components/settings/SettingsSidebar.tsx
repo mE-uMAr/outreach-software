@@ -3,7 +3,9 @@ import {
   Activity,
   Calendar,
   Clock,
+  Gauge,
   LayoutDashboard,
+  Linkedin,
   MessageSquare,
   Plug,
   Settings,
@@ -18,12 +20,14 @@ export interface SettingsSection {
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
+  { id: 's-accounts', label: 'Accounts', icon: Linkedin },
   { id: 's-schedule', label: 'Weekly Schedule', icon: Calendar },
   { id: 's-limits', label: 'Activity Limits', icon: Activity },
   { id: 's-followup', label: 'Follow-up Rules', icon: Clock },
   { id: 's-templates', label: 'Message Templates', icon: MessageSquare },
   { id: 's-sheets', label: 'Sheets Integration', icon: Sheet },
-  { id: 's-ai', label: 'AI Connection', icon: Plug }
+  { id: 's-ai', label: 'AI Connection', icon: Plug },
+  { id: 's-usage', label: 'AI Usage & Cost', icon: Gauge }
 ]
 
 interface SettingsSidebarProps {

@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { LayoutDashboard, Settings } from 'lucide-react'
+import type { LinkedInAccount } from '../../data/types.js'
 
 export type Route = 'campaigns' | 'settings'
 
@@ -11,9 +12,21 @@ const NAV_ITEMS: { route: Route; label: string; icon: typeof LayoutDashboard }[]
 interface TopNavProps {
   route: Route
   onNavigate: (route: Route) => void
+  /** The LinkedIn identity the app is acting as. */
+  account: LinkedInAccount | null
 }
 
-export function TopNav({ route, onNavigate }: TopNavProps): JSX.Element {
+/** Initials for the avatar fallback, from however many names there are. */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+export function TopNav({ route, onNavigate, account }: TopNavProps): JSX.Element {
+  const name = account?.fullName || 'Not connected'
+
   return (
     <header className="sticky top-0 z-[200] flex h-[54px] shrink-0 items-center justify-between border-b border-line bg-white px-8 shadow-topbar">
       <div className="flex items-center gap-2.5">
@@ -47,11 +60,16 @@ export function TopNav({ route, onNavigate }: TopNavProps): JSX.Element {
       </nav>
 
       <button
-        className="focus-ring flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-xs font-bold text-white"
-        aria-label="Account — Aisha"
-        title="Aisha"
+        onClick={() => onNavigate('settings')}
+        className="focus-ring flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-xs font-bold text-white"
+        aria-label={`Signed in as ${name}`}
+        title={account?.headline ? `${name} — ${account.headline}` : name}
       >
-        A
+        {account?.avatarUrl ? (
+          <img src={account.avatarUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          initials(name)
+        )}
       </button>
     </header>
   )

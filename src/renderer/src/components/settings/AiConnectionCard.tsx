@@ -15,6 +15,7 @@ import { Button } from '../ui/Button.js'
 import { FieldLabel } from '../ui/Field.js'
 import { Select, type SelectOption } from '../ui/Select.js'
 import {
+  cancelClaudeSignIn,
   getAuthStatus,
   signInToClaude,
   signOutOfClaude,
@@ -48,9 +49,15 @@ export function AiConnectionCard({ connection, onChange }: AiConnectionCardProps
   const [signingIn, setSigningIn] = useState(false)
   const [authUrl, setAuthUrl] = useState<string | null>(null)
   const [test, setTest] = useState<TestState>({ status: 'idle' })
+  const [progress, setProgress] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    setAuth(await getAuthStatus())
+    try {
+      setAuth(await getAuthStatus())
+    } catch (caught) {
+      setError((caught as Error).message)
+    }
   }, [])
 
   useEffect(() => {
@@ -60,28 +67,46 @@ export function AiConnectionCard({ connection, onChange }: AiConnectionCardProps
   const signIn = async (): Promise<void> => {
     setSigningIn(true)
     setAuthUrl(null)
+    setError(null)
     setTest({ status: 'idle' })
     try {
-      setAuth(await signInToClaude((url) => setAuthUrl(url)))
+      setAuth(await signInToClaude(setAuthUrl, setProgress))
+    } catch (caught) {
+      setError((caught as Error).message)
     } finally {
       setSigningIn(false)
       setAuthUrl(null)
+      setProgress(null)
     }
   }
 
+  const cancelSignIn = async (): Promise<void> => {
+    await cancelClaudeSignIn()
+    setSigningIn(false)
+  }
+
   const signOut = async (): Promise<void> => {
-    setAuth(await signOutOfClaude())
-    setTest({ status: 'idle' })
+    setError(null)
+    try {
+      setAuth(await signOutOfClaude())
+      setTest({ status: 'idle' })
+    } catch (caught) {
+      setError((caught as Error).message)
+    }
   }
 
   const runTest = async (): Promise<void> => {
     setTest({ status: 'testing' })
-    const result = await testAiConnection(connection.provider, connection.model)
-    setTest(
-      result.ok
-        ? { status: 'ok', model: result.model, latencyMs: result.latencyMs }
-        : { status: 'failed', message: result.error ?? 'Connection failed' }
-    )
+    try {
+      const result = await testAiConnection(connection.provider, connection.model)
+      setTest(
+        result.ok
+          ? { status: 'ok', model: result.model, latencyMs: result.latencyMs }
+          : { status: 'failed', message: result.error ?? 'Connection failed' }
+      )
+    } catch (caught) {
+      setTest({ status: 'failed', message: (caught as Error).message })
+    }
   }
 
   const signedIn = Boolean(auth?.loggedIn)
@@ -141,15 +166,24 @@ export function AiConnectionCard({ connection, onChange }: AiConnectionCardProps
                 into this app.
               </p>
 
-              <Button
-                variant="primary"
-                className="mt-3 w-full justify-center"
-                onClick={() => void signIn()}
-                disabled={signingIn}
-                icon={<LogIn size={15} strokeWidth={2.2} />}
-              >
-                {signingIn ? 'Waiting for authorisation…' : 'Sign in with Claude'}
-              </Button>
+              {signingIn ? (
+                <Button className="mt-3 w-full justify-center" onClick={() => void cancelSignIn()}>
+                  Cancel sign-in
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  className="mt-3 w-full justify-center"
+                  onClick={() => void signIn()}
+                  icon={<LogIn size={15} strokeWidth={2.2} />}
+                >
+                  Sign in with Claude
+                </Button>
+              )}
+
+              {signingIn && progress && (
+                <p className="mt-2 truncate text-[11px] text-ink-subtle">{progress}</p>
+              )}
 
               {authUrl && (
                 <a
@@ -163,6 +197,13 @@ export function AiConnectionCard({ connection, onChange }: AiConnectionCardProps
                 </a>
               )}
             </>
+          )}
+
+          {error && (
+            <p className="mt-2.5 flex items-start gap-1.5 rounded-lg border border-danger/20 bg-red-50 px-3 py-2 text-[11px] leading-relaxed text-danger">
+              <TriangleAlert size={12} strokeWidth={2.4} className="mt-px shrink-0" />
+              {error}
+            </p>
           )}
 
           <div className="mt-auto flex items-start gap-2 pt-3">

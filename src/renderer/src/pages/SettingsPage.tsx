@@ -7,15 +7,22 @@ import { FollowUpRulesCard } from '../components/settings/FollowUpRulesCard.js'
 import { MessageTemplatesCard } from '../components/settings/MessageTemplatesCard.js'
 import { SheetsIntegrationCard } from '../components/settings/SheetsIntegrationCard.js'
 import { AiConnectionCard } from '../components/settings/AiConnectionCard.js'
+import { LinkedInAccountCard } from '../components/settings/LinkedInAccountCard.js'
+import { UsageCard } from '../components/settings/UsageCard.js'
 import { SaveBar } from '../components/settings/SaveBar.js'
 import { getSettings, saveSettings } from '../data/api.js'
 import type { AutomationSettings } from '../data/types.js'
 
 interface SettingsPageProps {
   onBackToDashboard: () => void
+  /** Called when an account is disconnected, so the shell can re-gate the app. */
+  onDisconnected: () => void
 }
 
-export function SettingsPage({ onBackToDashboard }: SettingsPageProps): JSX.Element {
+export function SettingsPage({
+  onBackToDashboard,
+  onDisconnected
+}: SettingsPageProps): JSX.Element {
   const [saved, setSaved] = useState<AutomationSettings | null>(null)
   const [draft, setDraft] = useState<AutomationSettings | null>(null)
   const [saving, setSaving] = useState(false)
@@ -23,11 +30,15 @@ export function SettingsPage({ onBackToDashboard }: SettingsPageProps): JSX.Elem
   const [activeId, setActiveId] = useState(SETTINGS_SECTIONS[0].id)
   const scrollRef = useRef<HTMLElement>(null)
 
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   useEffect(() => {
-    void getSettings().then((settings) => {
-      setSaved(settings)
-      setDraft(structuredClone(settings))
-    })
+    void getSettings()
+      .then((settings) => {
+        setSaved(settings)
+        setDraft(structuredClone(settings))
+      })
+      .catch((error: Error) => setLoadError(error.message))
   }, [])
 
   const dirty = useMemo(
@@ -43,11 +54,16 @@ export function SettingsPage({ onBackToDashboard }: SettingsPageProps): JSX.Elem
   const onSave = async (): Promise<void> => {
     if (!draft) return
     setSaving(true)
-    const persisted = await saveSettings(draft)
-    setSaved(persisted)
-    setDraft(structuredClone(persisted))
-    setSaving(false)
-    setSavedAt(Date.now())
+    try {
+      const persisted = await saveSettings(draft)
+      setSaved(persisted)
+      setDraft(structuredClone(persisted))
+      setSavedAt(Date.now())
+    } catch (error) {
+      setLoadError((error as Error).message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const onDiscard = (): void => {
@@ -103,8 +119,15 @@ export function SettingsPage({ onBackToDashboard }: SettingsPageProps): JSX.Elem
           </p>
         </header>
 
+        {loadError && (
+          <p className="mb-5 rounded-xl border border-danger/20 bg-red-50 px-4 py-3 text-[13px] text-danger">
+            {loadError}
+          </p>
+        )}
+
         {draft ? (
           <div className="flex flex-col gap-5">
+            <LinkedInAccountCard onDisconnected={onDisconnected} />
             <WeeklyScheduleCard
               schedule={draft.schedule}
               onChange={(schedule) => patch({ schedule })}
@@ -120,6 +143,7 @@ export function SettingsPage({ onBackToDashboard }: SettingsPageProps): JSX.Elem
             />
             <SheetsIntegrationCard sheets={draft.sheets} />
             <AiConnectionCard connection={draft.ai} onChange={(ai) => patch({ ai })} />
+            <UsageCard />
           </div>
         ) : (
           <div className="flex flex-col gap-5">

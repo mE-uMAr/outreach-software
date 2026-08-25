@@ -17,9 +17,10 @@ from ...store import accounts, agent_memory
 from ...store import campaigns as store
 from ...store import settings_store
 from ..ai import auth as claude_auth
-from ..ai import reason
+from . import drafting
 from ..browser.runtime import runtime_status
 from ..linkedin import search
+from .runner import runner
 
 log = get_logger(__name__)
 
@@ -158,12 +159,36 @@ def outreach_update_campaign(id: str, changes: dict[str, Any]) -> dict[str, Any]
 
 
 @method("outreach.setCampaignStatus")
-def outreach_set_campaign_status(id: str, status: str) -> dict[str, Any] | None:  # noqa: A002
-    """Start, pause, resume or complete a campaign."""
+async def outreach_set_campaign_status(
+    ctx: RpcContext,
+    id: str,  # noqa: A002
+    status: str,
+) -> dict[str, Any] | None:
+    """Start, pause, resume or complete a campaign.
+
+    Starting one launches the runner, which then works the queue on its own and
+    reports through `campaign.*` notifications.
+    """
+    # The runner outlives any single request, so it is given the server's
+    # notifier rather than a per-call context.
+    runner.set_notifier(ctx.notify)
+
     try:
+        if status == "running":
+            await runner.start(id)
+            return store.get(id)
+        if status in ("paused", "completed"):
+            await runner.stop(id)
+            return store.set_status(id, status)
         return store.set_status(id, status)
     except ValueError as error:
         raise InvalidParams(str(error)) from error
+
+
+@method("outreach.runnerState")
+def outreach_runner_state(campaignId: str | None = None) -> Any:  # noqa: N803
+    """What the runner is doing right now."""
+    return runner.state(campaignId) if campaignId else runner.all_states()
 
 
 @method("outreach.deleteCampaign")
@@ -246,8 +271,8 @@ async def outreach_draft_message(
 ) -> dict[str, Any]:
     """Adapt one of the operator's templates to one prospect.
 
-    The template is the intent and the guardrail; Claude personalises inside it
-    rather than writing from nothing.
+    The same path the runner uses when it sends, so a preview here is exactly
+    what a prospect would receive.
     """
     settings = settings_store.get_automation()
     template = next(
@@ -257,40 +282,9 @@ async def outreach_draft_message(
         raise InvalidParams(f"Unknown template {templateId!r}")
 
     campaign = store.get(campaignId) if campaignId else None
-    limit = int(template.get("maxChars") or 2000)
-
-    prompt = f"""Template the operator wrote:
-"{template.get('body', '')}"
-
-Character limit: {limit}
-
-Prospect:
-- Name: {prospect.get('fullName') or 'unknown'}
-- Headline: {prospect.get('headline') or 'unknown'}
-- Company: {prospect.get('company') or 'unknown'}
-- Location: {prospect.get('location') or 'unknown'}
-
-Campaign: {campaign['name'] if campaign else 'none'}
-
-Write the message."""
-
-    answer = await reason.ask_json(
-        prompt,
-        system=DRAFT_SYSTEM,
-        tier=reason.REASONING,
-        purpose="outreach.draft",
-        max_tokens=500,
-        temperature=0.7,
-    )
-
-    message = str(answer.get("message") or "").strip()
+    message = await drafting.personalise(template, prospect, campaign)
     if not message:
-        raise RpcException("Claude returned an empty message")
-
-    # The limit is LinkedIn's, not a preference — enforce it here rather than
-    # trusting the model to have counted.
-    if len(message) > limit:
-        message = message[: limit - 1].rsplit(" ", 1)[0] + "…"
+        raise RpcException("That template is empty — write one first.")
 
     return {"message": message, "characters": len(message), "templateId": templateId}
 
